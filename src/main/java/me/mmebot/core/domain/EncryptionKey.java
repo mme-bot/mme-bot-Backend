@@ -1,0 +1,50 @@
+package me.mmebot.core.domain;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
+import jakarta.persistence.Table;
+import java.time.OffsetDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import org.hibernate.annotations.CreationTimestamp;
+
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Builder
+@Entity
+@Table(name = "keys", schema = "mmebot")
+public class EncryptionKey {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "key_id")
+    private Long id;
+
+    @Column(nullable = false)
+    private String alg;
+
+    @Column(name = "valid_from", nullable = false)
+    private OffsetDateTime validFrom;
+
+    @Column(name = "valid_to")
+    private OffsetDateTime validTo;
+
+    @Lob
+    @Column(name = "key_material", nullable = false)
+    private byte[] keyMaterial;
+
+    @Column(nullable = false)
+    private String status;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private OffsetDateTime createdAt;
+}
