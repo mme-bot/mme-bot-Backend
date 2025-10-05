@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import me.mmebot.common.persistence.DatabaseNames;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -24,7 +25,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "sns_users", schema = "mmebot")
+@Table(name = DatabaseNames.Tables.SNS_USERS, schema = DatabaseNames.Schemas.MME_BOT)
 public class SnsUser {
 
     @Id

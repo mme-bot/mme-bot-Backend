@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import me.mmebot.common.persistence.DatabaseNames;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -22,7 +23,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "encryption_contexts", schema = "mmebot")
+@Table(name = DatabaseNames.Tables.ENCRYPTION_CONTEXTS, schema = DatabaseNames.Schemas.MME_BOT)
 public class EncryptionContext {
 
     @Id

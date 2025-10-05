@@ -10,6 +10,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import me.mmebot.common.converter.VectorFloatArrayConverter;
+import me.mmebot.common.persistence.DatabaseNames;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,7 +23,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "diary_chunk_embedding", schema = "mmebot")
+@Table(name = DatabaseNames.Tables.DIARY_CHUNK_EMBEDDING, schema = DatabaseNames.Schemas.MME_BOT)
 public class DiaryChunkEmbedding {
 
     @Id

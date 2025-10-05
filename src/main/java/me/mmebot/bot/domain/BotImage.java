@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import me.mmebot.common.persistence.DatabaseNames;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -22,7 +23,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "bot_image", schema = "mmebot")
+@Table(name = DatabaseNames.Tables.BOT_IMAGE, schema = DatabaseNames.Schemas.MME_BOT)
 public class BotImage {
 
     @Id

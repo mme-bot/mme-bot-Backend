@@ -7,6 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
+import me.mmebot.common.persistence.DatabaseNames;
 import java.time.OffsetDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,7 +21,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "keys", schema = "mmebot")
+@Table(name = DatabaseNames.Tables.KEYS, schema = DatabaseNames.Schemas.MME_BOT)
 public class EncryptionKey {
 
     @Id

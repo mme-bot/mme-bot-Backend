@@ -1,4 +1,4 @@
-package me.mmebot.diary.domain;
+package me.mmebot.common.converter;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;

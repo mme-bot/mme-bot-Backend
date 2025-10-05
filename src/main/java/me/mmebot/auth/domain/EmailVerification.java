@@ -10,6 +10,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import me.mmebot.common.persistence.DatabaseNames;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -24,7 +25,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "email_verification", schema = "mmebot", indexes = {
+@Table(name = DatabaseNames.Tables.EMAIL_VERIFICATION, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
         @Index(name = "idx_email_verification_email_sendat_desc", columnList = "email, send_at DESC")
 })
 public class EmailVerification {

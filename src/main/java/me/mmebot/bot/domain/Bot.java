@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import me.mmebot.common.persistence.DatabaseNames;
 import jakarta.persistence.UniqueConstraint;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
@@ -22,7 +23,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "bot", schema = "mmebot", uniqueConstraints = {
+@Table(name = DatabaseNames.Tables.BOT, schema = DatabaseNames.Schemas.MME_BOT, uniqueConstraints = {
         @UniqueConstraint(name = "uk_bot_name", columnNames = "name")
 })
 public class Bot {

@@ -10,6 +10,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import me.mmebot.common.persistence.DatabaseNames;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -25,7 +26,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "auth_token", schema = "mmebot", indexes = {
+@Table(name = DatabaseNames.Tables.AUTH_TOKEN, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
         @Index(name = "idx_auth_token_user_issued_desc", columnList = "user_id, issued_at DESC")
 })
 public class AuthToken {
@@ -55,7 +56,7 @@ public class AuthToken {
     @Column(name = "user_agent", columnDefinition = "TEXT")
     private String userAgent;
 
-    @Column(name = "ip_address", length = 255)
+    @Column(name = "ip_address")
     private String ipAddress;
 
     @ManyToOne(fetch = FetchType.LAZY)

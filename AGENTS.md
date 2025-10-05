@@ -44,3 +44,4 @@
 - DDL의 INDEX/UNIQUE는 `@Table(indexes = ...)`, `@Column(unique = true)`로 반영
 - ENUM은 `@Enumerated(EnumType.STRING)`
 - 생성/수정 시간은 `@CreationTimestamp`, `@UpdateTimestamp`
+- Entity 의 Schema name, Table name 은 enum 으로 관리

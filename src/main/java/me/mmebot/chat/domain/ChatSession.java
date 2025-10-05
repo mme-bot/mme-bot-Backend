@@ -11,6 +11,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import me.mmebot.common.persistence.DatabaseNames;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -27,7 +28,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "chat_session", schema = "mmebot", indexes = {
+@Table(name = DatabaseNames.Tables.CHAT_SESSION, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
         @Index(name = "idx_chat_session_diary_id", columnList = "diary_id", unique = true)
 })
 public class ChatSession {

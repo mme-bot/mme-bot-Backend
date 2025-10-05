@@ -10,6 +10,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import me.mmebot.common.persistence.DatabaseNames;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
@@ -27,7 +28,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "diary", schema = "mmebot", indexes = {
+@Table(name = DatabaseNames.Tables.DIARY, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
         @Index(name = "idx_diary_user_date", columnList = "user_id, date")
 })
 public class Diary {
