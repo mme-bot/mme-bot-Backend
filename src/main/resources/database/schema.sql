@@ -222,3 +222,19 @@ CREATE TABLE mmebot.diary_chunk_embedding (
   CONSTRAINT fk_chunk_embedding FOREIGN KEY (diary_chunk_id)
     REFERENCES mmebot.diary_chunk (diary_chunk_id) ON DELETE CASCADE
 );
+
+CREATE TABLE roles (
+                       id BIGSERIAL PRIMARY KEY,              -- role 테이블의 PK
+                       user_id BIGINT NOT NULL,               -- users.id 참조
+                       role_name VARCHAR(50) NOT NULL,        -- 권한명 (예: ROLE_ADMIN, ROLE_USER)
+                       created_at TIMESTAMP DEFAULT NOW(),
+                       updated_at TIMESTAMP DEFAULT NOW(),
+
+                       CONSTRAINT fk_user_roles
+                           FOREIGN KEY (user_id)
+                               REFERENCES users(id)
+                               ON DELETE CASCADE
+);
+
+-- 유저별 조회 성능을 위한 인덱스
+CREATE INDEX idx_roles_user_id ON roles(user_id);

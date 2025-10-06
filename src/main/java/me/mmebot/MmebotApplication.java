@@ -1,9 +1,18 @@
 package me.mmebot;
 
+import me.mmebot.common.config.ExternalServiceProperties;
+import me.mmebot.common.config.JwtProperties;
+import me.mmebot.common.persistence.ApiProp;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 @SpringBootApplication
+@EnableConfigurationProperties({
+        ApiProp.class,
+        ExternalServiceProperties.class,
+        JwtProperties.class
+})
 public class MmebotApplication {
 
 	public static void main(String[] args) {
