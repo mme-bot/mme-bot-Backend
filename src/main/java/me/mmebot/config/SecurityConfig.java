@@ -2,6 +2,8 @@ package me.mmebot.config;
 
 import java.util.List;
 
+import lombok.RequiredArgsConstructor;
+import me.mmebot.auth.jwt.JwtAuthenticationFilter;
 import me.mmebot.common.config.ExternalServiceProperties;
 import me.mmebot.common.persistence.ApiProp;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandlerImpl;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -27,6 +30,7 @@ import static org.yaml.snakeyaml.nodes.Tag.STR;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
     private static final List<String> ALLOWED_METHODS = List.of(
@@ -37,7 +41,8 @@ public class SecurityConfig {
             HttpMethod.OPTIONS.name()
     );
 
-    private ApiProp apiProp;
+    private final ApiProp apiProp;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
@@ -56,7 +61,8 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
                         .accessDeniedHandler(new AccessDeniedHandlerImpl())
-                );
+                )
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
