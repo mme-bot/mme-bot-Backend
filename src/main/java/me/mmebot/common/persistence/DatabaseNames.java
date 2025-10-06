@@ -28,6 +28,7 @@ public final class DatabaseNames {
         public static final String KEYS = "keys";
         public static final String SNS_USERS = "sns_users";
         public static final String USERS = "users";
+        public static final String ROLES = "roles";
 
         private Tables() {
         }
