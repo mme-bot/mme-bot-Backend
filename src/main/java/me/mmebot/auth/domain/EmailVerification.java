@@ -15,6 +15,7 @@ import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Builder.Default;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import me.mmebot.core.domain.EncryptionContext;
@@ -48,10 +49,19 @@ public class EmailVerification {
     @Column(name = "expired_at", nullable = false)
     private OffsetDateTime expiredAt;
 
-    @Column(name = "sent_count", nullable = false)
-    private int sentCount;
+    @Builder.Default
+    @Column(name = "is_verified", nullable = false)
+    private boolean verified = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "encryption_context_id", nullable = false)
     private EncryptionContext encryptionContext;
+
+    public void markVerified() {
+        this.verified = true;
+    }
+
+    public boolean isVerified() {
+        return verified;
+    }
 }

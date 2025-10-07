@@ -1,12 +1,17 @@
 package me.mmebot.auth.domain;
 
 import jakarta.persistence.*;
-import lombok.*;
+
+import java.time.OffsetDateTime;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import me.mmebot.common.persistence.DatabaseNames;
 import me.mmebot.user.domain.User;
 import org.hibernate.annotations.CreationTimestamp;
-
-import java.time.OffsetDateTime;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -35,6 +40,7 @@ public class Role {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 

@@ -62,4 +62,16 @@ public class AuthToken {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "encryption_context_id", nullable = false)
     private EncryptionContext encryptionContext;
+
+    public boolean isRevoked() {
+        return revokedAt != null;
+    }
+
+    public boolean isExpired(OffsetDateTime now) {
+        return expiredAt.isBefore(now) || expiredAt.isEqual(now);
+    }
+
+    public void revoke(OffsetDateTime revokedAt) {
+        this.revokedAt = revokedAt;
+    }
 }

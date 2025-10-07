@@ -1,6 +1,6 @@
 package me.mmebot.auth.jwt;
 
-class JwtProcessingException extends RuntimeException {
+public class JwtProcessingException extends RuntimeException {
 
     JwtProcessingException(String message, Throwable cause) {
         super(message, cause);

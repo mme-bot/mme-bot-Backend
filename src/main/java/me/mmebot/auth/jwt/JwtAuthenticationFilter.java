@@ -7,7 +7,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -73,8 +72,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 log.debug("Ignoring non-access token type: {}", payload.tokenType());
                 return;
             }
-            Collection<SimpleGrantedAuthority> authorities = payload.roles().stream()
-                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+            Collection<SimpleGrantedAuthority> authorities = Optional.ofNullable(payload.roles())
+                    .stream()
+                    .flatMap(Collection::stream)
+                    .map(SimpleGrantedAuthority::new)
                     .toList();
 
             JwtAuthenticationToken authentication = new JwtAuthenticationToken(payload.userId(), authorities, token);

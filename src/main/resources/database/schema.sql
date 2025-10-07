@@ -123,7 +123,7 @@ CREATE TABLE mmebot.email_verification (
     code                    VARCHAR(16) NOT NULL,
     send_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
     expired_at              TIMESTAMPTZ NOT NULL,
-    sent_count              INT NOT NULL DEFAULT 0,
+    is_verified             BOOLEAN NOT NULL DEFAULT FALSE,
     encryption_context_id   BIGINT NOT NULL,            -- key_id -> encryption_context_id
     CONSTRAINT fk_email_verification_enc FOREIGN KEY (encryption_context_id)
         REFERENCES mmebot.encryption_contexts (encryption_context_id)

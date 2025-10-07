@@ -29,6 +29,36 @@
     - Persist as JDBC `Array` (float8) or String form, whichever is simpler for PostgreSQL driver.
     - Use on diary_chunk_embedding.embedding.
 
+## API
+모든 DTO 에는 database table 을 기준으로 `@Vaild` 설정 필수
+### auth
+- `signIn`
+  - req: email, passwd
+  - res: userId, botId, nickname, accessToken, refreshToken (JWT)
+    - 403 code : deletedAt 이 null이 아닐 경우 탈퇴한 회원
+    - 404 code : email 또는 passwd 가 다를 경우
+- `signUp`
+  - req: email, passwd, nickname, emailVerificationId
+  - res: none
+    - 403 code : emailVerificationId 에서 isVerified -> false 일 때
+- `sendEmailVerification`
+  - req: email
+  - res: emailVerificationId, code
+    - expiredAt 은 sendAt 5분 후로 설정
+    - 404 code : email 형식이 다를 때
+    - 429 code : EmailVerification 에서 sendAt 으로 비교하여 10개 이상 전송됐을 경우.
+- `checkEmailVerification`
+  - req: emailVerificationId, code
+  - res: none
+    - 400 code : code 값이 다를 경우
+    - 404 code : emailVerificationId 값이 유효하지 않을 때
+    - 410 code : expiredAt 값이 현재 시간 이후일 경우 
+- `TokenReissue`
+  - req: userId, refreshToken
+  - res: accessToken, refreshToken
+    - 404 code : userId 값이 유효하지 않을 때
+    - 400 code : refreshToken 이 유효하지 않을 때
+
 ## Repository
 - Generate Spring Data JPA repositories per domain.
 - Use Optional<T> and derived query methods for common lookups.
@@ -58,3 +88,4 @@
     - 쿠키 설정: HttpOnly+Secure (SameSite=Lax 권장, cross-site면 None + HTTPS)
   - JWS, JWE 를 사용.
   - 암호화, 복호화 클래스를 분리한다.
+- 401 code: Access token 인증이 실패할 경우 (refresh token 으로 재인증 필요)

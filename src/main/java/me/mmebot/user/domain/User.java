@@ -67,4 +67,8 @@ public class User {
 
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
+
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
 }
