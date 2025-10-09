@@ -1,6 +1,7 @@
 package me.mmebot.config;
 
 import io.micrometer.common.util.StringUtils;
+import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 import me.mmebot.common.config.ExternalServiceProperties;
 import me.mmebot.common.config.JwtProperties;
+import me.mmebot.common.exception.ErrorResponse;
 import me.mmebot.common.persistence.ApiProp;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -53,7 +55,7 @@ public class OpenApiConfiguration {
         String description = "REST API for MME Bot. All endpoints are served under '" + basePath
                 + "'. Access tokens are JWTs issued by '" + jwtProperties.issuer() + "'.";
 
-        return new OpenAPI()
+        OpenAPI openApi = new OpenAPI()
                 .info(new Info()
                         .title("MME Bot API")
                         .version("v1")
@@ -61,6 +63,8 @@ public class OpenApiConfiguration {
                         .contact(new Contact().name("MME Bot Platform")))
                 .servers(servers)
                 .components(new Components().addSecuritySchemes(SECURITY_SCHEME_BEARER, bearerScheme));
+
+        return openApi;
     }
 
     @Bean
@@ -69,9 +73,24 @@ public class OpenApiConfiguration {
         String publicAuthPrefix = basePath + "/auth";
 
         return openApi -> {
-            if (openApi.getPaths() == null) {
-                return;
+            // 0) components/schemas 준비
+            if (openApi.getComponents() == null) openApi.setComponents(new Components());
+            if (openApi.getComponents().getSchemas() == null)
+                openApi.getComponents().setSchemas(new LinkedHashMap<>());
+
+            // 1) ErrorResponse 스키마가 없으면 등록 (ModelConverters로 자동 변환)
+            if (!openApi.getComponents().getSchemas().containsKey("ErrorResponse")) {
+                Map<String, Schema> schemas = ModelConverters.getInstance().read(ErrorResponse.class);
+                if (schemas != null) {
+                    schemas.forEach((name, schema) ->
+                            openApi.getComponents().getSchemas().putIfAbsent(name, schema)
+                    );
+                }
             }
+
+            // 2) 이후 paths 순회하며 responses 주입
+            if (openApi.getPaths() == null) return;
+
             openApi.getPaths().forEach((path, pathItem) -> {
                 pathItem.readOperations().forEach(operation -> {
                     boolean requiresSecurity = !path.startsWith(publicAuthPrefix);
