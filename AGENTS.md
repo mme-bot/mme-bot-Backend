@@ -1,5 +1,6 @@
 ## Global Rules
 - Language: Java 25+, Spring Boot 3.5+, JPA (jakarta.persistence).
+- Document: spring doc 2.8+
 - Output directories:
     - Entities: src/main/java/me/mmebot/<domain>/domain
     - Repositories: src/main/java/me/mmebot/<domain>/repository
@@ -89,3 +90,11 @@
   - JWS, JWE 를 사용.
   - 암호화, 복호화 클래스를 분리한다.
 - 401 code: Access token 인증이 실패할 경우 (refresh token 으로 재인증 필요)
+
+## spring doc Document
+Add Swagger(OpenAPI) docs via springdoc auto-scan + central OpenApiCustomiser (no controller changes)
+- Do not modify any controllers, services, entities.
+- Use springdoc-openapi auto scanning to generate base spec.
+- Enrich the spec programmatically via OpenApiCustomiser / OperationCustomizer / OpenAPI bean.
+- Swagger UI must be available at /swagger-ui, OpenAPI JSON at /api/v1/api-docs (already configured below).
+- Build tool: Gradle
