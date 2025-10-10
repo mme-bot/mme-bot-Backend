@@ -1,0 +1,54 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_PORT: ${APP_PORT:-8000}
+    container_name: mmebot-app
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      SPRING_DATASOURCE_URL: ${DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-holiday}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-in8282}
+      SPRING_CONFIG_NAME: ${SPRING_CONFIG_NAME:-application}
+      SPRING_CONFIG_LOCATION: ${SPRING_CONFIG_LOCATION:-classpath:/application.yml}
+      SERVER_ADDRESS: ${SERVER_ADDRESS:-0.0.0.0}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-JWT_SECRET_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - mmebot-net
+
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: mmebot-db
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mmebot-net
+
+volumes:
+  pgdata:
+
+networks:
+  mmebot-net:
+    driver: bridge
