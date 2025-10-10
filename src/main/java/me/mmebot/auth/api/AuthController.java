@@ -63,13 +63,13 @@ public class AuthController {
         ));
     }
 
-    @PostMapping("/send-email-verification")
+    @PostMapping("/email-verification/send")
     public SendEmailVerificationResponse sendEmailVerification(@Valid @RequestBody SendEmailVerificationRequest request) {
         EmailVerificationService.SendEmailVerificationResult result = emailVerificationService.send(request.email());
         return new SendEmailVerificationResponse(result.emailVerificationId(), result.code());
     }
 
-    @PostMapping("/check-email-verification")
+    @PostMapping("/email-verification/check")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void checkEmailVerification(@Valid @RequestBody CheckEmailVerificationRequest request) {
         emailVerificationService.check(request.emailVerificationId(), request.code());
