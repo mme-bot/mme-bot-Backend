@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.domain.EmailVerification;
 import me.mmebot.auth.exception.EmailVerificationException;
 import me.mmebot.auth.repository.EmailVerificationRepository;
+import me.mmebot.auth.service.AuthServiceRecords.SendEmailVerificationResult;
 import me.mmebot.core.service.EncryptionContextFactory;
 import org.springframework.stereotype.Service;
 
@@ -121,8 +122,5 @@ public class EmailVerificationService {
             throw EmailVerificationException.emailRequired();
         }
         return email.trim().toLowerCase();
-    }
-
-    public record SendEmailVerificationResult(Long emailVerificationId, String code) {
     }
 }

@@ -16,6 +16,10 @@ import me.mmebot.auth.jwt.JwtProcessingException;
 import me.mmebot.auth.jwt.JwtTokenService;
 import me.mmebot.auth.repository.AuthTokenRepository;
 import me.mmebot.auth.repository.RoleRepository;
+import me.mmebot.auth.service.AuthServiceRecords.ClientMetadata;
+import me.mmebot.auth.service.AuthServiceRecords.SignInResult;
+import me.mmebot.auth.service.AuthServiceRecords.SignUpCommand;
+import me.mmebot.auth.service.AuthServiceRecords.TokenPair;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.user.domain.User;
 import me.mmebot.user.repository.UserRepository;
@@ -184,17 +188,5 @@ public class AuthService {
             throw AuthException.emailRequired();
         }
         return email.trim().toLowerCase();
-    }
-
-    public record SignInResult(Long userId, Long botId, String nickname, String accessToken, String refreshToken) {
-    }
-
-    public record TokenPair(String accessToken, String refreshToken) {
-    }
-
-    public record SignUpCommand(String email, String password, String nickname, Long emailVerificationId) {
-    }
-
-    public record ClientMetadata(String userAgent, String ipAddress) {
     }
 }

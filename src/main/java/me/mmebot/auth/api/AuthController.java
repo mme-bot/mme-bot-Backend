@@ -12,6 +12,11 @@ import me.mmebot.auth.api.dto.SignUpRequest;
 import me.mmebot.auth.api.dto.TokenReissueRequest;
 import me.mmebot.auth.api.dto.TokenReissueResponse;
 import me.mmebot.auth.service.AuthService;
+import me.mmebot.auth.service.AuthServiceRecords.ClientMetadata;
+import me.mmebot.auth.service.AuthServiceRecords.SendEmailVerificationResult;
+import me.mmebot.auth.service.AuthServiceRecords.SignInResult;
+import me.mmebot.auth.service.AuthServiceRecords.SignUpCommand;
+import me.mmebot.auth.service.AuthServiceRecords.TokenPair;
 import me.mmebot.auth.service.EmailVerificationService;
 import me.mmebot.common.config.JwtProperties;
 import org.springframework.http.HttpHeaders;
@@ -45,7 +50,7 @@ public class AuthController {
     public SignInResponse signIn(@Valid @RequestBody SignInRequest request,
                                  HttpServletRequest httpRequest,
                                  HttpServletResponse httpResponse) {
-        AuthService.SignInResult result = authService.signIn(request.email(), request.passwd(),
+        SignInResult result = authService.signIn(request.email(), request.passwd(),
                 resolveClientMetadata(httpRequest));
         writeAccessTokenCookie(httpResponse, result.accessToken());
         return new SignInResponse(result.userId(), result.botId(), result.nickname(),
@@ -55,7 +60,7 @@ public class AuthController {
     @PostMapping("/sign-up")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void signUp(@Valid @RequestBody SignUpRequest request) {
-        authService.signUp(new AuthService.SignUpCommand(
+        authService.signUp(new SignUpCommand(
                 request.email(),
                 request.passwd(),
                 request.nickname(),
@@ -65,7 +70,7 @@ public class AuthController {
 
     @PostMapping("/email-verification/send")
     public SendEmailVerificationResponse sendEmailVerification(@Valid @RequestBody SendEmailVerificationRequest request) {
-        EmailVerificationService.SendEmailVerificationResult result = emailVerificationService.send(request.email());
+        SendEmailVerificationResult result = emailVerificationService.send(request.email());
         return new SendEmailVerificationResponse(result.emailVerificationId(), result.code());
     }
 
@@ -79,7 +84,7 @@ public class AuthController {
     public TokenReissueResponse reissueToken(@Valid @RequestBody TokenReissueRequest request,
                                              HttpServletRequest httpRequest,
                                              HttpServletResponse httpResponse) {
-        AuthService.TokenPair tokens = authService.reissue(request.userId(), request.refreshToken(),
+        TokenPair tokens = authService.reissue(request.userId(), request.refreshToken(),
                 resolveClientMetadata(httpRequest));
         writeAccessTokenCookie(httpResponse, tokens.accessToken());
         return new TokenReissueResponse(tokens.accessToken(), tokens.refreshToken());
@@ -96,12 +101,12 @@ public class AuthController {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
-    private AuthService.ClientMetadata resolveClientMetadata(HttpServletRequest request) {
+    private ClientMetadata resolveClientMetadata(HttpServletRequest request) {
         String userAgent = request.getHeader(HttpHeaders.USER_AGENT);
         String ipAddressHeader = request.getHeader("X-Forwarded-For");
         String ipAddress = ipAddressHeader != null && !ipAddressHeader.isBlank()
                 ? ipAddressHeader.split(",")[0].trim()
                 : request.getRemoteAddr();
-        return new AuthService.ClientMetadata(userAgent, ipAddress);
+        return new ClientMetadata(userAgent, ipAddress);
     }
 }
