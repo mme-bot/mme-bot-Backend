@@ -3,6 +3,8 @@ package me.mmebot.core.service;
 import jakarta.transaction.Transactional;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
+import java.util.Objects;
+import me.mmebot.core.config.EncryptionKeyProperties;
 import me.mmebot.core.domain.EncryptionContext;
 import me.mmebot.core.domain.EncryptionKey;
 import me.mmebot.core.repository.EncryptionContextRepository;
@@ -13,19 +15,21 @@ import org.springframework.stereotype.Service;
 @Transactional
 public class EncryptionContextFactory {
 
-    private static final int IV_LENGTH = 12;
-    private static final int TAG_LENGTH = 16;
-    private static final int KEY_LENGTH = 32;
     private static final String ACTIVE_STATUS = "ACTIVE";
 
     private final EncryptionKeyRepository keyRepository;
     private final EncryptionContextRepository contextRepository;
+    private final EncryptionKeyProperties keyProperties;
+    private final EncryptionKeyProperties.Length keyLengths;
     private final SecureRandom secureRandom;
 
     public EncryptionContextFactory(EncryptionKeyRepository keyRepository,
-                                    EncryptionContextRepository contextRepository) {
+                                    EncryptionContextRepository contextRepository,
+                                    EncryptionKeyProperties keyProperties) {
         this.keyRepository = keyRepository;
         this.contextRepository = contextRepository;
+        this.keyProperties = Objects.requireNonNull(keyProperties, "encryptionKeyProperties must not be null");
+        this.keyLengths = Objects.requireNonNull(keyProperties.length(), "encryptionKeyLengths must not be null");
         this.secureRandom = new SecureRandom();
     }
 
@@ -39,8 +43,8 @@ public class EncryptionContextFactory {
 
         EncryptionContext context = EncryptionContext.builder()
                 .key(key)
-                .iv(randomBytes(IV_LENGTH))
-                .tag(randomBytes(TAG_LENGTH))
+                .iv(randomBytes(keyLengths.iv()))
+                .tag(randomBytes(keyLengths.tag()))
                 .aadHash(aadHash)
                 .encryptAt(OffsetDateTime.now())
                 .build();
@@ -50,9 +54,9 @@ public class EncryptionContextFactory {
 
     private EncryptionKey createDefaultKey() {
         EncryptionKey key = EncryptionKey.builder()
-                .alg("AES256-GCM")
+                .alg(keyProperties.algorithm())
                 .validFrom(OffsetDateTime.now())
-                .keyMaterial(randomBytes(KEY_LENGTH))
+                .keyMaterial(randomBytes(keyLengths.key()))
                 .status(ACTIVE_STATUS)
                 .build();
         return keyRepository.save(key);
