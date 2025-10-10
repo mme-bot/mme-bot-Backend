@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.domain.AuthToken;
 import me.mmebot.auth.domain.Role;
 import me.mmebot.auth.domain.RoleName;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -36,13 +38,20 @@ public class AuthService {
     private final EmailVerificationService emailVerificationService;
 
     public SignInResult signIn(String email, String rawPassword, ClientMetadata metadata) {
-        User user = userRepository.findByEmail(normalizeEmail(email))
-                .orElseThrow(AuthException::invalidCredentials);
+        String normalizedEmail = normalizeEmail(email);
+        log.info("Attempting sign-in for {}", normalizedEmail);
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> {
+                    log.warn("Sign-in failed: no user found for {}", normalizedEmail);
+                    return AuthException.invalidCredentials();
+                });
 
         if (user.isDeleted()) {
+            log.warn("Sign-in failed: user {} is marked as deleted", user.getId());
             throw AuthException.deletedAccount();
         }
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+            log.warn("Sign-in failed: invalid credentials for {}", normalizedEmail);
             throw AuthException.invalidCredentials();
         }
 
@@ -52,14 +61,17 @@ public class AuthService {
 
         TokenPair tokens = issueTokens(user, roles, metadata);
         Long botId = user.getBot() != null ? user.getBot().getId() : null;
+        log.info("Sign-in succeeded for user {}", user.getId());
         return new SignInResult(user.getId(), botId, user.getNickname(), tokens.accessToken(), tokens.refreshToken());
     }
 
     public void signUp(SignUpCommand command) {
         String normalizedEmail = normalizeEmail(command.email());
+        log.info("Attempting sign-up for {}", normalizedEmail);
         userRepository.findByEmail(normalizedEmail)
                 .filter(existing -> !existing.isDeleted())
                 .ifPresent(existing -> {
+                    log.warn("Sign-up failed: {} already in use", normalizedEmail);
                     throw AuthException.duplicateEmail();
                 });
 
@@ -80,29 +92,41 @@ public class AuthService {
                     .roleName(RoleName.ROLE_USER)
                     .build());
         }
+        log.info("Sign-up succeeded: user {} registered", saved.getId());
     }
 
     public TokenPair reissue(Long userId, String refreshToken, ClientMetadata metadata) {
         JwtPayload payload = parseToken(refreshToken);
         if (!Objects.equals(payload.userId(), userId)) {
+            log.warn("Token reissue failed: refresh token user mismatch (expected {}, actual {})", userId,
+                    payload.userId());
             throw AuthException.refreshTokenUserMismatch();
         }
         if (!"refresh".equals(payload.tokenType())) {
+            log.warn("Token reissue failed: invalid token type {} for user {}", payload.tokenType(), userId);
             throw AuthException.invalidTokenType();
         }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(AuthException::userNotFound);
+                .orElseThrow(() -> {
+                    log.warn("Token reissue failed: user {} not found", userId);
+                    return AuthException.userNotFound();
+                });
         if (user.isDeleted()) {
+            log.warn("Token reissue failed: user {} is marked as deleted", userId);
             throw AuthException.deletedAccount();
         }
 
         byte[] jtiHash = tokenHashService.hash(payload.jwtId());
         AuthToken storedToken = authTokenRepository.findByUserIdAndEncryptionContextAadHash(userId, jtiHash)
-                .orElseThrow(AuthException::refreshTokenMissing);
+                .orElseThrow(() -> {
+                    log.warn("Token reissue failed: refresh token missing for user {}", userId);
+                    return AuthException.refreshTokenMissing();
+                });
 
         OffsetDateTime now = OffsetDateTime.now();
         if (storedToken.isRevoked() || storedToken.isExpired(now)) {
+            log.warn("Token reissue failed: refresh token invalid for user {}", userId);
             throw AuthException.refreshTokenInvalid();
         }
 
@@ -113,7 +137,9 @@ public class AuthService {
                 .map(Role::getRoleName)
                 .toList();
 
-        return issueTokens(user, roles, metadata);
+        TokenPair tokenPair = issueTokens(user, roles, metadata);
+        log.info("Token reissue succeeded for user {}", userId);
+        return tokenPair;
     }
 
     private TokenPair issueTokens(User user, Collection<RoleName> roleNames, ClientMetadata metadata) {
@@ -125,6 +151,7 @@ public class AuthService {
         String refreshToken = jwtTokenService.createRefreshToken(user.getId(), effectiveRoles);
         JwtPayload refreshPayload = parseToken(refreshToken);
         storeRefreshToken(user, metadata, refreshPayload);
+        log.debug("Issued tokens for user {} with roles {}", user.getId(), effectiveRoles);
         return new TokenPair(accessToken, refreshToken);
     }
 
@@ -139,18 +166,21 @@ public class AuthService {
                 .encryptionContext(encryptionContextFactory.createContext(jtiHash))
                 .build();
         authTokenRepository.save(authToken);
+        log.debug("Stored refresh token metadata for user {}", user.getId());
     }
 
     private JwtPayload parseToken(String token) {
         try {
             return jwtTokenService.parse(token);
         } catch (JwtProcessingException ex) {
+            log.error("Token parsing failed", ex);
             throw AuthException.tokenProcessingFailed("Failed to process token", ex);
         }
     }
 
     private String normalizeEmail(String email) {
         if (email == null) {
+            log.error("Email normalization failed: email is required");
             throw AuthException.emailRequired();
         }
         return email.trim().toLowerCase();

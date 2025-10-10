@@ -4,6 +4,7 @@ import jakarta.transaction.Transactional;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 import me.mmebot.core.config.EncryptionKeyProperties;
 import me.mmebot.core.domain.EncryptionContext;
 import me.mmebot.core.domain.EncryptionKey;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @Transactional
+@Slf4j
 public class EncryptionContextFactory {
 
     private static final String ACTIVE_STATUS = "ACTIVE";
@@ -49,7 +51,9 @@ public class EncryptionContextFactory {
                 .encryptAt(OffsetDateTime.now())
                 .build();
 
-        return contextRepository.save(context);
+        EncryptionContext saved = contextRepository.save(context);
+        log.debug("Created encryption context {} using key {}", saved.getId(), key.getId());
+        return saved;
     }
 
     private EncryptionKey createDefaultKey() {
@@ -59,7 +63,9 @@ public class EncryptionContextFactory {
                 .keyMaterial(randomBytes(keyLengths.key()))
                 .status(ACTIVE_STATUS)
                 .build();
-        return keyRepository.save(key);
+        EncryptionKey saved = keyRepository.save(key);
+        log.info("Generated default ACTIVE encryption key {}", saved.getId());
+        return saved;
     }
 
     private byte[] randomBytes(int length) {
