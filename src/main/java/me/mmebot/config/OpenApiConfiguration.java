@@ -43,8 +43,11 @@ public class OpenApiConfiguration {
                                  ExternalServiceProperties external,
                                  JwtProperties jwtProperties,
                                  Environment environment) {
-        String basePath = normalizeBasePath(apiProp);
-        List<Server> servers = buildServers(basePath, external, environment);
+        String basePath = apiProp.basePath();
+        if (StringUtils.isBlank(basePath)) {
+            basePath = "/api/v1";
+        }
+        List<Server> servers = buildServers(external, environment);
 
         SecurityScheme bearerScheme = new SecurityScheme()
                 .type(SecurityScheme.Type.HTTP)
@@ -156,18 +159,17 @@ public class OpenApiConfiguration {
                 .content(content);
     }
 
-    private List<Server> buildServers(String basePath,
-                                      ExternalServiceProperties external,
+    private List<Server> buildServers(ExternalServiceProperties external,
                                       Environment environment) {
         List<Server> servers = new ArrayList<>();
         String address = environment.getProperty("server.address", "localhost");
         String port = environment.getProperty("server.port", "8080");
-        String localUrl = "http://" + address + ":" + port + basePath;
+        String localUrl = "http://" + address + ":" + port;
         servers.add(new Server().url(localUrl).description("Local development"));
 
         String apiGateway = external.apiGateway();
         if (StringUtils.isNotBlank(apiGateway)) {
-            servers.add(new Server().url(joinUrl(apiGateway, basePath)).description("API gateway"));
+            servers.add(new Server().url(joinUrl(apiGateway, "")).description("API gateway"));
         }
         return servers;
     }
@@ -190,7 +192,7 @@ public class OpenApiConfiguration {
     private String normalizeBasePath(ApiProp apiProp) {
         String basePath = apiProp.basePath();
         if (StringUtils.isBlank(basePath)) {
-            return "/api";
+            return "/api/v1";
         }
         String normalized = basePath.trim();
         if (!normalized.startsWith("/")) {
