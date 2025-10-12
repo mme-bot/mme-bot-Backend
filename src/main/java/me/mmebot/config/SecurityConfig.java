@@ -70,8 +70,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource(ExternalServiceProperties external) {
         CorsConfiguration configuration = new CorsConfiguration();
-        if (external.frontendUrl() != null && !external.frontendUrl().isBlank()) {
-            configuration.setAllowedOrigins(List.of(external.frontendUrl()));
+        if (external.allowOriginUrls() != null && !external.allowOriginUrls().isEmpty()) {
+            configuration.setAllowedOriginPatterns(external.allowOriginUrls());
         }
         configuration.setAllowedMethods(ALLOWED_METHODS);
         configuration.setAllowedHeaders(List.of("*"));
