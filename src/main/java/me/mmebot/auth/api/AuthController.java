@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("${api.base-path}/auth")
 public class AuthController {
 
     private static final String ACCESS_TOKEN_COOKIE = "access_token";
