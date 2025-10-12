@@ -8,6 +8,7 @@ import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.domain.AuthToken;
+import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.Role;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.exception.AuthException;
@@ -106,7 +107,7 @@ public class AuthService {
                     payload.userId());
             throw AuthException.refreshTokenUserMismatch();
         }
-        if (!"refresh".equals(payload.tokenType())) {
+        if (payload.tokenType() != AuthTokenType.REFRESH) {
             log.warn("Token reissue failed: invalid token type {} for user {}", payload.tokenType(), userId);
             throw AuthException.invalidTokenType();
         }

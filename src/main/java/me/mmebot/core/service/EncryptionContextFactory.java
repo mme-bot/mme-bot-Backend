@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import me.mmebot.core.config.EncryptionKeyProperties;
 import me.mmebot.core.domain.EncryptionContext;
 import me.mmebot.core.domain.EncryptionKey;
+import me.mmebot.core.domain.EncryptionKeyStatus;
 import me.mmebot.core.repository.EncryptionContextRepository;
 import me.mmebot.core.repository.EncryptionKeyRepository;
 import org.springframework.stereotype.Service;
@@ -17,7 +18,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class EncryptionContextFactory {
 
-    private static final String ACTIVE_STATUS = "ACTIVE";
+    private static final EncryptionKeyStatus ACTIVE_STATUS = EncryptionKeyStatus.ACTIVE;
 
     private final EncryptionKeyRepository keyRepository;
     private final EncryptionContextRepository contextRepository;

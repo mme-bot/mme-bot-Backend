@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.common.config.JwtProperties;
 import org.springframework.stereotype.Component;
@@ -45,14 +46,14 @@ public class JwtTokenService {
 
     public String createAccessToken(Long userId, Collection<RoleName> roleNames) {
         String token = createToken(userId, roleNames.stream().map(RoleName::name).toList(),
-                properties.accessTokenExpiry(), "access");
+                properties.accessTokenExpiry(), AuthTokenType.ACCESS);
         log.debug("Access token issued for user {}", userId);
         return token;
     }
 
     public String createRefreshToken(Long userId, Collection<RoleName> roleNames) {
         String token = createToken(userId, roleNames.stream().map(RoleName::name).toList(),
-                properties.refreshTokenExpiry(), "refresh");
+                properties.refreshTokenExpiry(), AuthTokenType.REFRESH);
         log.debug("Refresh token issued for user {}", userId);
         return token;
     }
@@ -77,7 +78,14 @@ public class JwtTokenService {
 
             List<String> roles = claims.getStringListClaim(CLAIM_ROLES);
             Long userId = claims.getLongClaim(CLAIM_USER_ID);
-            String tokenType = claims.getStringClaim(CLAIM_TOKEN_TYPE);
+            String tokenTypeClaim = claims.getStringClaim(CLAIM_TOKEN_TYPE);
+            AuthTokenType tokenType;
+            try {
+                tokenType = AuthTokenType.valueOf(tokenTypeClaim);
+            } catch (IllegalArgumentException | NullPointerException ex) {
+                log.warn("JWT validation failed: invalid token type {}", tokenTypeClaim);
+                throw new JwtProcessingException("JWT payload contains invalid token type", ex);
+            }
             OffsetDateTime expiresAt = claims.getExpirationTime() == null
                     ? null
                     : OffsetDateTime.ofInstant(claims.getExpirationTime().toInstant(), ZoneOffset.UTC);
@@ -93,7 +101,7 @@ public class JwtTokenService {
     private String createToken(Long userId,
                                Collection<String> roles,
                                Duration lifetime,
-                               String tokenType) {
+                               AuthTokenType tokenType) {
         if (lifetime == null) {
             log.error("Unable to create {} token: lifetime not configured", tokenType);
             throw new IllegalStateException("JWT lifetime must be configured");
@@ -108,7 +116,7 @@ public class JwtTokenService {
                 .subject(String.valueOf(userId))
                 .claim(CLAIM_USER_ID, userId)
                 .claim(CLAIM_ROLES, roles)
-                .claim(CLAIM_TOKEN_TYPE, tokenType)
+                .claim(CLAIM_TOKEN_TYPE, tokenType.name())
                 .jwtID(UUID.randomUUID().toString())
                 .build();
         SignedJWT signedJWT;

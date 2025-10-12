@@ -2,11 +2,12 @@ package me.mmebot.auth.jwt;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import me.mmebot.auth.domain.AuthTokenType;
 
 public record JwtPayload(
         Long userId,
         List<String> roles,
-        String tokenType,
+        AuthTokenType tokenType,
         OffsetDateTime expiresAt,
         String jwtId
 ) {

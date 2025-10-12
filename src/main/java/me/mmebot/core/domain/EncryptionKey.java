@@ -2,6 +2,8 @@ package me.mmebot.core.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -42,8 +44,9 @@ public class EncryptionKey {
     @Column(name = "key_material", nullable = false)
     private byte[] keyMaterial;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String status;
+    private EncryptionKeyStatus status;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

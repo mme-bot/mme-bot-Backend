@@ -43,7 +43,7 @@ public class AuthException extends ApiException {
 
     public static AuthException tokenProcessingFailed(String message, Throwable cause) {
         AuthException exception = new AuthException(HttpStatus.BAD_REQUEST, message, "auth.token_processing_failed");
-        if (cause != null) {
+        if (cause.getCause() != null) {
             exception.initCause(cause);
         }
         return exception;
