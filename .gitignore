@@ -37,4 +37,5 @@ out/
 .vscode/
 
 src/main/resources/application*
+src/test/resources/application*
 .env
