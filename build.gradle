@@ -29,10 +29,16 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
     // springDoc
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13'
     // JWT
     implementation 'com.nimbusds:nimbus-jose-jwt:10.5'
+	// Gmail API
+    implementation 'com.google.api-client:google-api-client:2.8.1'
+    implementation 'com.google.apis:google-api-services-gmail:v1-rev110-1.25.0'
+    implementation 'com.google.auth:google-auth-library-oauth2-http:1.39.1'
+
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
