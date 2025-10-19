@@ -17,6 +17,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.AccessLevel;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.Type;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -41,7 +43,8 @@ public class EncryptionKey {
     private OffsetDateTime validTo;
 
     @Lob
-    @Column(name = "key_material", nullable = false)
+    @JdbcTypeCode(java.sql.Types.BINARY)
+    @Column(name = "key_material", nullable = false, columnDefinition = "BYTEA")
     private byte[] keyMaterial;
 
     @Enumerated(EnumType.STRING)

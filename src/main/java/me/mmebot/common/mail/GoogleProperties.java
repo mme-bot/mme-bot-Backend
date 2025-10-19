@@ -2,8 +2,9 @@ package me.mmebot.common.mail;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "gmail")
-public record GmailProperties(
+@ConfigurationProperties(prefix = "google")
+public record GoogleProperties(
+        String tokenUrl,
         boolean enabled,
         String applicationName,
         String userEmail,

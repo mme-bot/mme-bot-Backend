@@ -1,0 +1,124 @@
+package me.mmebot.auth.service;
+
+import jakarta.transaction.Transactional;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import me.mmebot.auth.api.dto.GoogleTokenResponse;
+import me.mmebot.auth.domain.ProviderToken;
+import me.mmebot.auth.exception.GoogleOAuthException;
+import me.mmebot.auth.exception.ProviderTokenException;
+import me.mmebot.auth.repository.ProviderTokenRepository;
+import me.mmebot.common.mail.GoogleProperties;
+import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.service.AesGcmEncryptor;
+import me.mmebot.core.service.AesGcmEncryptor.EncryptionResult;
+import me.mmebot.core.service.EncryptionContextFactory;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+@Slf4j
+public class ProviderTokenService {
+
+    private static final String PROVIDER_GOOGLE = "GOOGLE";
+
+    private final ProviderTokenRepository providerTokenRepository;
+    private final EncryptionContextFactory encryptionContextFactory;
+    private final AesGcmEncryptor encryptor;
+    private final TokenHashService tokenHashService;
+    private final GoogleProperties googleProperties;
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    public GoogleTokenResponse refreshAccessToken(String refreshToken) {
+        Map<String, String> params = new HashMap<>();
+        params.put("client_id", googleProperties.clientId());
+        params.put("client_secret", googleProperties.clientSecret());
+        params.put("refresh_token", refreshToken);
+        params.put("grant_type", "refresh_token");
+
+        return requestToken(params);
+    }
+
+    private GoogleTokenResponse requestToken(Map<String, String> params) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            String body = params.entrySet().stream()
+                    .map(e -> e.getKey() + "=" + e.getValue())
+                    .reduce((a, b) -> a + "&" + b)
+                    .orElse("");
+
+            HttpEntity<String> entity = new HttpEntity<>(body, headers);
+
+            ResponseEntity<GoogleTokenResponse> response = restTemplate.exchange(
+                    googleProperties.tokenUrl(), HttpMethod.POST, entity, GoogleTokenResponse.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                // TODO: Service 에서 저장하도록 수정
+                return response.getBody();
+            }
+            log.error("request token failed, status code: {}", response.getStatusCode());
+            throw GoogleOAuthException.failedGetRefreshToken(response.getStatusCode());
+        } catch (Exception ex) {
+            log.error("request token failed: {}", ex.getMessage(), ex);
+            throw GoogleOAuthException.requestFailed();
+        }
+    }
+
+    public void storeGoogleAuthorizationCode(String authorizationCode, String state) {
+        String normalizedCode = normalizeCode(authorizationCode);
+        String clientId = resolveClientId();
+        String normalizedState = normalize(state);
+        byte[] aad = normalizedState != null ? normalizedState.getBytes(StandardCharsets.UTF_8) : null;
+        byte[] aadHash = normalizedState != null ? tokenHashService.hash(normalizedState) : null;
+
+        EncryptionContext context = encryptionContextFactory.createContext(aadHash);
+        EncryptionResult encrypted = encryptor.encrypt(normalizedCode, context, aad);
+        context.updateTag(encrypted.tag());
+
+        ProviderToken token = providerTokenRepository.findByProviderAndClientId(PROVIDER_GOOGLE, clientId)
+                .orElseGet(() -> ProviderToken.builder()
+                        .provider(PROVIDER_GOOGLE)
+                        .clientId(clientId)
+                        .encryptionContext(context)
+                        .build());
+        token.applyAuthorizationCode(encrypted.payload(), context);
+
+        providerTokenRepository.save(token);
+        log.info("Stored encrypted authorization code for provider {} and client {}", PROVIDER_GOOGLE, clientId);
+    }
+
+    private String normalizeCode(String authorizationCode) {
+        if (authorizationCode == null || authorizationCode.trim().isEmpty()) {
+            log.error("Provided authorization code is null or empty");
+            throw ProviderTokenException.authorizationCodeMissing();
+        }
+        return authorizationCode.trim();
+    }
+
+    private String resolveClientId() {
+        String clientId = googleProperties.clientId();
+        if (clientId == null || clientId.trim().isEmpty()) {
+            log.error("Provided client id is null or empty");
+            throw ProviderTokenException.clientConfigurationMissing();
+        }
+        return clientId.trim();
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+}

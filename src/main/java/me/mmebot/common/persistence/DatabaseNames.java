@@ -26,6 +26,7 @@ public final class DatabaseNames {
         public static final String EMAIL_VERIFICATION = "email_verification";
         public static final String ENCRYPTION_CONTEXTS = "encryption_contexts";
         public static final String KEYS = "keys";
+        public static final String PROVIDER_TOKENS = "provider_tokens";
         public static final String SNS_USERS = "sns_users";
         public static final String USERS = "users";
         public static final String ROLES = "roles";

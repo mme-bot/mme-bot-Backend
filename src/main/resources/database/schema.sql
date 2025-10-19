@@ -1,7 +1,7 @@
 DROP SCHEMA mmebot CASCADE;
 CREATE SCHEMA mmebot;
 
-CREATE EXTENSION vector;
+-- CREATE EXTENSION vector;
 
 -- =========================================================
 -- Core: keys, encryption_contexts
@@ -238,3 +238,30 @@ CREATE TABLE mmebot.roles (
 
 -- 유저별 조회 성능을 위한 인덱스
 CREATE INDEX idx_roles_user_id ON mmebot.roles(user_id);
+
+CREATE TABLE mmebot.provider_tokens (
+                                        provider_token_id      BIGSERIAL PRIMARY KEY,
+                                        provider               VARCHAR(50)  NOT NULL,       -- 예: 'GOOGLE', 'NAVER', 'KAKAO'
+                                        client_id              VARCHAR(255) NOT NULL,       -- Google OAuth Client ID
+                                        authorization_code     TEXT,                        -- 인가 코드 (AES-GCM 암호화)
+
+    -- Access / Refresh Token
+                                        access_token           TEXT,                        -- 단기 Access Token (평문 저장 가능)
+                                        expires_at             TIMESTAMPTZ,                 -- Access Token 만료 시각
+                                        token_type             VARCHAR(32) DEFAULT 'Bearer',
+
+    -- refresh_token은 encryption_contexts를 통해 암호화 관리
+                                        encryption_context_id  BIGINT NOT NULL
+                                            REFERENCES mmebot.encryption_contexts (encryption_context_id)
+                                                ON DELETE CASCADE,
+
+                                        scopes                 TEXT,                        -- 예: 'https://www.googleapis.com/auth/gmail.send'
+                                        is_active              BOOLEAN DEFAULT TRUE,         -- 현재 유효 여부
+                                        error_count            INT DEFAULT 0,                -- 401/403 등 오류 발생 횟수
+                                        last_refresh_at        TIMESTAMPTZ,                  -- 마지막 refresh_token 사용 시각
+                                        last_api_call_at       TIMESTAMPTZ,                  -- 마지막 Gmail API 호출 시각
+                                        created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+                                        updated_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+                                        CONSTRAINT uq_provider_client UNIQUE (provider, client_id)
+);

@@ -2,7 +2,7 @@ package me.mmebot;
 
 import me.mmebot.common.config.ExternalServiceProperties;
 import me.mmebot.common.config.JwtProperties;
-import me.mmebot.common.mail.GmailProperties;
+import me.mmebot.common.mail.GoogleProperties;
 import me.mmebot.common.persistence.ApiProp;
 import me.mmebot.core.config.EncryptionKeyProperties;
 import org.springframework.boot.SpringApplication;
@@ -15,7 +15,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
         ExternalServiceProperties.class,
         JwtProperties.class,
         EncryptionKeyProperties.class,
-        GmailProperties.class
+        GoogleProperties.class
 })
 public class MmebotApplication {
 

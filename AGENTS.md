@@ -6,6 +6,7 @@
     - Repositories: src/main/java/me/mmebot/<domain>/repository
     - sql file(DDL): src/main/resources/database/schema.sql
     - config file: src/main/resources/application.yml
+- Do not use System env
 
 ## Domains
 - core: keys, encryption_contexts
