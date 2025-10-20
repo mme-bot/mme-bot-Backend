@@ -2,6 +2,7 @@ package me.mmebot.auth.service;
 
 import jakarta.transaction.Transactional;
 import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -36,17 +37,17 @@ public class ProviderTokenService {
     private final GoogleProperties googleProperties;
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public GoogleTokenResponse refreshAccessToken(String refreshToken) {
+    public void refreshAccessToken(String refreshToken) {
         Map<String, String> params = new HashMap<>();
         params.put("client_id", googleProperties.clientId());
         params.put("client_secret", googleProperties.clientSecret());
         params.put("refresh_token", refreshToken);
         params.put("grant_type", "refresh_token");
 
-        return requestToken(params);
+        requestToken(params);
     }
 
-    private GoogleTokenResponse requestToken(Map<String, String> params) {
+    private void requestToken(Map<String, String> params) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -63,8 +64,12 @@ public class ProviderTokenService {
             );
 
             if (response.getStatusCode().is2xxSuccessful()) {
-                // TODO: Service 에서 저장하도록 수정
-                return response.getBody();
+                GoogleTokenResponse tokenResponse = response.getBody();
+                if (tokenResponse == null) {
+                    log.error("request token failed: empty response body");
+                    throw GoogleOAuthException.requestFailed();
+                }
+                storeProviderTokens(tokenResponse);
             }
             log.error("request token failed, status code: {}", response.getStatusCode());
             throw GoogleOAuthException.failedGetRefreshToken(response.getStatusCode());
@@ -72,6 +77,40 @@ public class ProviderTokenService {
             log.error("request token failed: {}", ex.getMessage(), ex);
             throw GoogleOAuthException.requestFailed();
         }
+    }
+
+    private void storeProviderTokens(GoogleTokenResponse tokenResponse) {
+        String clientId = resolveClientId();
+        ProviderToken providerToken = providerTokenRepository.findByProviderAndClientId(PROVIDER_GOOGLE, clientId)
+                .orElseGet(() -> ProviderToken.builder()
+                        .provider(PROVIDER_GOOGLE)
+                        .clientId(clientId)
+                        .encryptionContext(encryptionContextFactory.createContext())
+                        .build());
+
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime expiresAt = tokenResponse.expiresIn() > 0
+                ? now.plusSeconds(tokenResponse.expiresIn())
+                : null;
+
+        providerToken.applyTokenResponse(
+                tokenResponse.accessToken(),
+                expiresAt,
+                tokenResponse.tokenType(),
+                tokenResponse.scope(),
+                now
+        );
+
+        String refreshToken = tokenResponse.refreshToken();
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            EncryptionContext context = encryptionContextFactory.createContext();
+            EncryptionResult encryptedRefreshToken = encryptor.encrypt(refreshToken, context, null);
+            context.updateTag(encryptedRefreshToken.tag());
+            providerToken.applyRefreshToken(encryptedRefreshToken.payload(), context);
+        }
+
+        providerTokenRepository.save(providerToken);
+        log.info("Stored provider tokens for provider {} and client {}", PROVIDER_GOOGLE, clientId);
     }
 
     public void storeGoogleAuthorizationCode(String authorizationCode, String state) {

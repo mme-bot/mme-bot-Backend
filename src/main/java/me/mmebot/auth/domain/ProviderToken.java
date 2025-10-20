@@ -48,6 +48,9 @@ public class ProviderToken {
     @Column(name = "authorization_code", columnDefinition = "TEXT")
     private String authorizationCode;
 
+    @Column(name = "refresh_token", columnDefinition = "TEXT")
+    private String refreshToken;
+
     @Column(name = "access_token", columnDefinition = "TEXT")
     private String accessToken;
 
@@ -90,6 +93,30 @@ public class ProviderToken {
 
     public void applyAuthorizationCode(String encryptedCode, EncryptionContext context) {
         this.authorizationCode = encryptedCode;
+        this.encryptionContext = context;
+        this.active = true;
+        this.errorCount = 0;
+    }
+
+    public void applyTokenResponse(String accessToken,
+                                   OffsetDateTime expiresAt,
+                                   String tokenType,
+                                   String scopes,
+                                   OffsetDateTime refreshedAt) {
+        this.accessToken = accessToken;
+        this.expiresAt = expiresAt;
+        if (tokenType != null && !tokenType.isBlank()) {
+            this.tokenType = tokenType;
+        }
+        this.scopes = scopes;
+        this.lastRefreshAt = refreshedAt;
+        this.active = true;
+        this.errorCount = 0;
+    }
+
+    public void applyRefreshToken(String encryptedRefreshToken, EncryptionContext context) {
+        this.refreshToken = encryptedRefreshToken;
+        this.authorizationCode = null;
         this.encryptionContext = context;
         this.active = true;
         this.errorCount = 0;

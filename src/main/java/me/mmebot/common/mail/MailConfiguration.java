@@ -12,7 +12,7 @@ public class MailConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "gmail", name = "enabled", havingValue = "true")
-    public MailSender gmailMailSender(GmailProperties properties) {
+    public MailSender gmailMailSender(GoogleProperties properties) {
         log.info("gmail.enabled=true. Configuring GmailMailSender for {}", properties.userEmail());
         return new GmailMailSender(properties);
     }

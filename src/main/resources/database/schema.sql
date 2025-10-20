@@ -245,6 +245,8 @@ CREATE TABLE mmebot.provider_tokens (
                                         client_id              VARCHAR(255) NOT NULL,       -- Google OAuth Client ID
                                         authorization_code     TEXT,                        -- 인가 코드 (AES-GCM 암호화)
 
+                                        refresh_token          TEXT,                        -- refresh token (AES-GCM 암호화)
+
     -- Access / Refresh Token
                                         access_token           TEXT,                        -- 단기 Access Token (평문 저장 가능)
                                         expires_at             TIMESTAMPTZ,                 -- Access Token 만료 시각

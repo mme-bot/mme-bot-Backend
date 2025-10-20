@@ -32,7 +32,7 @@ class GmailMailSender implements MailSender {
     private final Session mailSession;
     private final InternetAddress fromAddress;
 
-    GmailMailSender(GmailProperties properties) {
+    GmailMailSender(GoogleProperties properties) {
         Objects.requireNonNull(properties, "properties");
         this.mailSession = Session.getInstance(new Properties());
         this.credential = createCredential(properties);
@@ -93,7 +93,7 @@ class GmailMailSender implements MailSender {
         }
     }
 
-    private GoogleCredential createCredential(GmailProperties properties) {
+    private GoogleCredential createCredential(GoogleProperties properties) {
         try {
             HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
             GoogleCredential credential = new GoogleCredential.Builder()
@@ -112,7 +112,7 @@ class GmailMailSender implements MailSender {
         }
     }
 
-    private Gmail createGmailClient(GoogleCredential credential, GmailProperties properties) {
+    private Gmail createGmailClient(GoogleCredential credential, GoogleProperties properties) {
         Gmail gmailClient = new Gmail.Builder(credential.getTransport(), JSON_FACTORY, credential)
                 .setApplicationName(requireNonBlank(properties.applicationName(), "gmail.application-name"))
                 .build();
@@ -120,7 +120,7 @@ class GmailMailSender implements MailSender {
         return gmailClient;
     }
 
-    private InternetAddress createFromAddress(GmailProperties properties) {
+    private InternetAddress createFromAddress(GoogleProperties properties) {
         try {
             String address = requireNonBlank(properties.userEmail(), "gmail.user-email");
             String personal = properties.fromDisplayName();
