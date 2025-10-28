@@ -2,24 +2,25 @@ package me.mmebot.auth.service;
 
 import jakarta.transaction.Transactional;
 
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.api.dto.GoogleTokenResponse;
 import me.mmebot.auth.domain.ProviderToken;
+import me.mmebot.auth.domain.token.EncryptedToken;
+import me.mmebot.auth.domain.token.TokenCipher;
+import me.mmebot.auth.domain.token.TokenCipherException;
+import me.mmebot.auth.domain.token.TokenCipherSpec;
 import me.mmebot.auth.exception.GoogleOAuthException;
 import me.mmebot.auth.exception.ProviderTokenException;
 import me.mmebot.auth.repository.ProviderTokenRepository;
 import me.mmebot.common.mail.GoogleProperties;
-import me.mmebot.core.domain.EncryptionContext;
-import me.mmebot.core.service.AesGcmEncryptor;
-import me.mmebot.core.service.AesGcmEncryptor.EncryptionResult;
-import me.mmebot.core.service.EncryptionContextFactory;
+import me.mmebot.auth.service.dto.GoogleProviderTokens;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -35,8 +36,7 @@ public class ProviderTokenService {
     private static final String PROVIDER_GOOGLE = "GOOGLE";
 
     private final ProviderTokenRepository providerTokenRepository;
-    private final EncryptionContextFactory encryptionContextFactory;
-    private final AesGcmEncryptor encryptor;
+    private final TokenCipher tokenCipher;
     private final TokenHashService tokenHashService;
     private final GoogleProperties googleProperties;
     private final RestTemplate restTemplate = new RestTemplate();
@@ -45,21 +45,23 @@ public class ProviderTokenService {
         ProviderToken providerToken = providerTokenRepository.findByProvider(PROVIDER_GOOGLE)
                 .orElseThrow(GoogleOAuthException::requestFailed);
 
-        Map<String, String> params = new HashMap<>();
+        String clientId = resolveClientId();
+        try {
+            String authorizationCode = providerToken.decodeAuthorizationCode(tokenCipher,
+                    googleAuthorizationSpec(clientId));
 
-        String decryptCode = encryptor.decrypt(
-                providerToken.getAuthorizationCode(),
-                providerToken.getEncryptionContext(),
-                googleProperties.clientId().getBytes(StandardCharsets.UTF_8)
-        );
+            Map<String, String> params = new HashMap<>();
+            params.put("client_id", clientId);
+            params.put("client_secret", googleProperties.clientSecret());
+            params.put("code", authorizationCode);
+            params.put("redirect_uri", googleProperties.redirectUri());
+            params.put("grant_type", "authorization_code");
 
-        params.put("client_id", googleProperties.clientId());
-        params.put("client_secret", googleProperties.clientSecret());
-        params.put("code", decryptCode);
-        params.put("redirect_uri", googleProperties.redirectUri());
-        params.put("grant_type", "authorization_code");
-
-        requestToken(params);
+            requestToken(params);
+        } catch (TokenCipherException ex) {
+            log.error("Failed to decrypt authorization code for provider {}", PROVIDER_GOOGLE, ex);
+            throw GoogleOAuthException.requestFailed();
+        }
     }
 
     private void requestToken(Map<String, String> params) {
@@ -100,7 +102,6 @@ public class ProviderTokenService {
                 .orElseGet(() -> ProviderToken.builder()
                         .provider(PROVIDER_GOOGLE)
                         .clientId(clientId)
-                        .encryptionContext(encryptionContextFactory.createContext())
                         .build());
 
         OffsetDateTime now = OffsetDateTime.now();
@@ -108,47 +109,62 @@ public class ProviderTokenService {
                 ? now.plusSeconds(tokenResponse.expiresIn())
                 : null;
 
-        providerToken.applyTokenResponse(
-                tokenResponse.accessToken(),
-                expiresAt,
-                tokenResponse.tokenType(),
-                tokenResponse.scope(),
-                now
-        );
+        try {
+            if (tokenResponse.accessToken() != null && !tokenResponse.accessToken().isBlank()) {
+                EncryptedToken encryptedAccess = tokenCipher.encrypt(tokenResponse.accessToken(), TokenCipherSpec.empty());
+                providerToken.storeAccessToken(encryptedAccess, expiresAt, tokenResponse.tokenType(), tokenResponse.scope(), now);
+            }
 
-        String refreshToken = tokenResponse.refreshToken();
-        if (refreshToken != null && !refreshToken.isBlank()) {
-            EncryptionContext context = encryptionContextFactory.createContext();
-            EncryptionResult encryptedRefreshToken = encryptor.encrypt(refreshToken, context, null);
-            context.updateTag(encryptedRefreshToken.tag());
-            providerToken.applyRefreshToken(encryptedRefreshToken.payload(), context);
+            String refreshToken = tokenResponse.refreshToken();
+            if (refreshToken != null && !refreshToken.isBlank()) {
+                EncryptedToken encryptedRefresh = tokenCipher.encrypt(refreshToken, TokenCipherSpec.empty());
+                providerToken.storeRefreshToken(encryptedRefresh);
+            }
+
+            providerTokenRepository.save(providerToken);
+            log.info("Stored provider tokens for provider {} and client {}", PROVIDER_GOOGLE, clientId);
+        } catch (TokenCipherException ex) {
+            log.error("Failed to encrypt provider tokens for client {}", clientId, ex);
+            throw GoogleOAuthException.requestFailed();
         }
-
-        providerTokenRepository.save(providerToken);
-        log.info("Stored provider tokens for provider {} and client {}", PROVIDER_GOOGLE, clientId);
     }
 
     public void storeGoogleAuthorizationCode(String authorizationCode) {
         String normalizedCode = normalizeCode(authorizationCode);
         String clientId = resolveClientId();
-        String normalizedState = clientId;
-        byte[] aad = normalizedState.getBytes(StandardCharsets.UTF_8);
-        byte[] aadHash = tokenHashService.hash(normalizedState);
+        TokenCipherSpec spec = googleAuthorizationSpec(clientId);
 
-        EncryptionContext context = encryptionContextFactory.createContext(aadHash);
-        EncryptionResult encrypted = encryptor.encrypt(normalizedCode, context, aad);
-        context.updateTag(encrypted.tag());
+        try {
+            EncryptedToken encrypted = tokenCipher.encrypt(normalizedCode, spec);
 
-        ProviderToken token = providerTokenRepository.findByProviderAndClientId(PROVIDER_GOOGLE, clientId)
-                .orElseGet(() -> ProviderToken.builder()
-                        .provider(PROVIDER_GOOGLE)
-                        .clientId(clientId)
-                        .encryptionContext(context)
-                        .build());
-        token.applyAuthorizationCode(encrypted.payload(), context);
+            ProviderToken token = providerTokenRepository.findByProviderAndClientId(PROVIDER_GOOGLE, clientId)
+                    .orElseGet(() -> ProviderToken.builder()
+                            .provider(PROVIDER_GOOGLE)
+                            .clientId(clientId)
+                            .build());
+            token.storeAuthorizationCode(encrypted);
 
-        providerTokenRepository.save(token);
-        log.info("Stored encrypted authorization code for provider {} and client {}", PROVIDER_GOOGLE, clientId);
+            providerTokenRepository.save(token);
+            log.info("Stored encrypted authorization code for provider {} and client {}", PROVIDER_GOOGLE, clientId);
+        } catch (TokenCipherException ex) {
+            log.error("Failed to encrypt authorization code for provider {}", PROVIDER_GOOGLE, ex);
+            throw GoogleOAuthException.requestFailed();
+        }
+    }
+
+    private TokenCipherSpec googleAuthorizationSpec(String clientId) {
+        byte[] aad = clientId.getBytes(StandardCharsets.UTF_8);
+        byte[] aadHash = tokenHashService.hash(clientId);
+        return TokenCipherSpec.of(aad, aadHash);
+    }
+
+    private String safeDecrypt(Supplier<String> supplier) {
+        try {
+            return supplier.get();
+        } catch (TokenCipherException ex) {
+            log.error("Failed to decrypt provider token for {}", PROVIDER_GOOGLE, ex);
+            throw GoogleOAuthException.requestFailed();
+        }
     }
 
     private String normalizeCode(String authorizationCode) {

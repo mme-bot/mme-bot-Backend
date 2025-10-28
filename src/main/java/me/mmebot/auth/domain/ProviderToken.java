@@ -15,9 +15,13 @@ import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Builder.Default;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Builder.Default;
+import me.mmebot.auth.domain.token.EncryptedToken;
+import me.mmebot.auth.domain.token.TokenCipher;
+import me.mmebot.auth.domain.token.TokenCipherException;
+import me.mmebot.auth.domain.token.TokenCipherSpec;
 import me.mmebot.common.persistence.DatabaseNames;
 import me.mmebot.core.domain.EncryptionContext;
 import org.hibernate.annotations.CreationTimestamp;
@@ -48,11 +52,26 @@ public class ProviderToken {
     @Column(name = "authorization_code", columnDefinition = "TEXT")
     private String authorizationCode;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "authorization_context_id",
+            foreignKey = @ForeignKey(name = "fk_provider_tokens_authorization_ctx"))
+    private EncryptionContext authorizationCodeContext;
+
     @Column(name = "refresh_token", columnDefinition = "TEXT")
     private String refreshToken;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "refresh_context_id",
+            foreignKey = @ForeignKey(name = "fk_provider_tokens_refresh_ctx"))
+    private EncryptionContext refreshTokenContext;
+
     @Column(name = "access_token", columnDefinition = "TEXT")
     private String accessToken;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "access_context_id",
+            foreignKey = @ForeignKey(name = "fk_provider_tokens_access_ctx"))
+    private EncryptionContext accessTokenContext;
 
     @Column(name = "expires_at")
     private OffsetDateTime expiresAt;
@@ -60,11 +79,6 @@ public class ProviderToken {
     @Default
     @Column(name = "token_type", length = 32)
     private String tokenType = "Bearer";
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "encryption_context_id", nullable = false,
-            foreignKey = @ForeignKey(name = "fk_provider_tokens_enc"))
-    private EncryptionContext encryptionContext;
 
     @Column(name = "scopes", columnDefinition = "TEXT")
     private String scopes;
@@ -91,38 +105,32 @@ public class ProviderToken {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
-    public String getAuthorizationCode() {
-        byte[] aesKey = encryptionContext.getKey().getKeyMaterial();
-        byte[] iv = encryptionContext.getIv();
-        byte[] tag = encryptionContext.getTag();
-        byte[] addHash = encryptionContext.getAadHash();
-        String state = clientId.trim();
-
-
-        return authorizationCode;
-    }
-
-    private String normalize(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
-    }
-
-    public void applyAuthorizationCode(String encryptedCode, EncryptionContext context) {
-        this.authorizationCode = encryptedCode;
-        this.encryptionContext = context;
+    public void storeAuthorizationCode(EncryptedToken encryptedToken) {
+        requireToken(encryptedToken, "authorization code");
+        this.authorizationCode = encryptedToken.payload();
+        this.authorizationCodeContext = encryptedToken.context();
         this.active = true;
         this.errorCount = 0;
     }
 
-    public void applyTokenResponse(String accessToken,
-                                   OffsetDateTime expiresAt,
-                                   String tokenType,
-                                   String scopes,
-                                   OffsetDateTime refreshedAt) {
-        this.accessToken = accessToken;
+    public void storeRefreshToken(EncryptedToken encryptedToken) {
+        requireToken(encryptedToken, "refresh token");
+        this.refreshToken = encryptedToken.payload();
+        this.refreshTokenContext = encryptedToken.context();
+        this.authorizationCode = null;
+        this.authorizationCodeContext = null;
+        this.active = true;
+        this.errorCount = 0;
+    }
+
+    public void storeAccessToken(EncryptedToken encryptedToken,
+                                 OffsetDateTime expiresAt,
+                                 String tokenType,
+                                 String scopes,
+                                 OffsetDateTime refreshedAt) {
+        requireToken(encryptedToken, "access token");
+        this.accessToken = encryptedToken.payload();
+        this.accessTokenContext = encryptedToken.context();
         this.expiresAt = expiresAt;
         if (tokenType != null && !tokenType.isBlank()) {
             this.tokenType = tokenType;
@@ -133,11 +141,50 @@ public class ProviderToken {
         this.errorCount = 0;
     }
 
-    public void applyRefreshToken(String encryptedRefreshToken, EncryptionContext context) {
-        this.refreshToken = encryptedRefreshToken;
-        this.authorizationCode = null;
-        this.encryptionContext = context;
-        this.active = true;
-        this.errorCount = 0;
+    public boolean hasAuthorizationCode() {
+        return authorizationCode != null && authorizationCodeContext != null;
+    }
+
+    public boolean hasRefreshToken() {
+        return refreshToken != null && refreshTokenContext != null;
+    }
+
+    public boolean hasAccessToken() {
+        return accessToken != null && accessTokenContext != null;
+    }
+
+    public String decodeAuthorizationCode(TokenCipher cipher, TokenCipherSpec spec) {
+        return cipher.decrypt(asEncryptedToken(authorizationCode, authorizationCodeContext, "authorization code"),
+                specOrEmpty(spec));
+    }
+
+    public String decodeRefreshToken(TokenCipher cipher, TokenCipherSpec spec) {
+        return cipher.decrypt(asEncryptedToken(refreshToken, refreshTokenContext, "refresh token"), specOrEmpty(spec));
+    }
+
+    public String decodeAccessToken(TokenCipher cipher, TokenCipherSpec spec) {
+        return cipher.decrypt(asEncryptedToken(accessToken, accessTokenContext, "access token"), specOrEmpty(spec));
+    }
+
+    private void requireToken(EncryptedToken encryptedToken, String label) {
+        if (encryptedToken == null) {
+            throw new TokenCipherException("Encrypted " + label + " must not be null");
+        }
+        if (encryptedToken.payload() == null || encryptedToken.context() == null) {
+            throw new TokenCipherException("Encrypted " + label + " is incomplete");
+        }
+    }
+
+    private EncryptedToken asEncryptedToken(String payload,
+                                            EncryptionContext context,
+                                            String label) {
+        if (payload == null || context == null) {
+            throw new TokenCipherException("No encrypted " + label + " available");
+        }
+        return new EncryptedToken(payload, context);
+    }
+
+    private TokenCipherSpec specOrEmpty(TokenCipherSpec spec) {
+        return spec != null ? spec : TokenCipherSpec.empty();
     }
 }

@@ -244,18 +244,22 @@ CREATE TABLE mmebot.provider_tokens (
                                         provider               VARCHAR(50)  NOT NULL,       -- 예: 'GOOGLE', 'NAVER', 'KAKAO'
                                         client_id              VARCHAR(255) NOT NULL,       -- Google OAuth Client ID
                                         authorization_code     TEXT,                        -- 인가 코드 (AES-GCM 암호화)
+                                        authorization_context_id BIGINT
+                                            REFERENCES mmebot.encryption_contexts (encryption_context_id)
+                                                ON DELETE SET NULL,
 
                                         refresh_token          TEXT,                        -- refresh token (AES-GCM 암호화)
+                                        refresh_context_id     BIGINT
+                                            REFERENCES mmebot.encryption_contexts (encryption_context_id)
+                                                ON DELETE SET NULL,
 
     -- Access / Refresh Token
-                                        access_token           TEXT,                        -- 단기 Access Token (평문 저장 가능)
+                                        access_token           TEXT,                        -- 단기 Access Token (AES-GCM 암호화)
+                                        access_context_id      BIGINT
+                                            REFERENCES mmebot.encryption_contexts (encryption_context_id)
+                                                ON DELETE SET NULL,
                                         expires_at             TIMESTAMPTZ,                 -- Access Token 만료 시각
                                         token_type             VARCHAR(32) DEFAULT 'Bearer',
-
-    -- refresh_token은 encryption_contexts를 통해 암호화 관리
-                                        encryption_context_id  BIGINT NOT NULL
-                                            REFERENCES mmebot.encryption_contexts (encryption_context_id)
-                                                ON DELETE CASCADE,
 
                                         scopes                 TEXT,                        -- 예: 'https://www.googleapis.com/auth/gmail.send'
                                         is_active              BOOLEAN DEFAULT TRUE,         -- 현재 유효 여부
