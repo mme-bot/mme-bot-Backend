@@ -12,6 +12,7 @@ import me.mmebot.auth.domain.AuthToken;
 import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.Role;
 import me.mmebot.auth.domain.RoleName;
+import me.mmebot.auth.domain.token.EncryptedToken;
 import me.mmebot.auth.domain.token.TokenCipher;
 import me.mmebot.auth.exception.AuthException;
 import me.mmebot.auth.jwt.JwtPayload;
@@ -104,7 +105,9 @@ public class AuthService {
     }
 
     public TokenPair reissue(Long userId, String refreshToken, ClientMetadata metadata) {
-        JwtPayload payload = parseToken(refreshToken);
+        AuthToken authToken = authTokenRepository.findByUserIdAndToken(userId, refreshToken).getFirst();
+        String decodeToken = authToken.getDecodeToken(userId.toString(), tokenCipher, tokenHashService);
+        JwtPayload payload = parseToken(decodeToken);
         if (!Objects.equals(payload.userId(), userId)) {
             log.warn("Token reissue failed: refresh token user mismatch (expected {}, actual {})", userId,
                     payload.userId());
@@ -125,7 +128,7 @@ public class AuthService {
             throw AuthException.deletedAccount();
         }
 
-        byte[] jtiHash = tokenHashService.hash(payload.jwtId());
+        byte[] jtiHash = tokenHashService.hash(userId.toString());
         AuthToken storedToken = authTokenRepository.findByUserIdAndEncryptionContextAadHash(userId, jtiHash)
                 .orElseThrow(() -> {
                     log.warn("Token reissue failed: refresh token missing for user {}", userId);

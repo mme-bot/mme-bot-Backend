@@ -78,7 +78,7 @@ public class AuthToken {
 
     public AuthToken(User user, AuthTokenType type, String token, OffsetDateTime expiredAt, String ipAddress, String userAgent, TokenCipher tokenCipher, TokenHashService tokenHashService) {
         this.user = user;
-        EncryptedToken encryptedToken = getEncryptedToken(token, tokenCipher, tokenHashService);
+        EncryptedToken encryptedToken = getEncryptedToken(token, user.getId().toString(), tokenCipher, tokenHashService);
         this.type = type;
         this.token = encryptedToken.payload();
         this.expiredAt = expiredAt;
@@ -87,9 +87,8 @@ public class AuthToken {
         this.userAgent = userAgent;
     }
 
-    public String getDecodeToken(TokenCipher cipher, TokenHashService tokenHashService) {
-        return cipher.decrypt(asEncryptedToken(this.token, this.encryptionContext, type.name()), TokenCipherSpec.of(getAad(), getAadHash(tokenHashService)));
-
+    public String getDecodeToken(String tag, TokenCipher cipher, TokenHashService tokenHashService) {
+        return cipher.decrypt(asEncryptedToken(this.token, this.encryptionContext, type.name()), TokenCipherSpec.of(getAad(tag), getAadHash(tag, tokenHashService)));
     }
 
     private EncryptedToken asEncryptedToken(String payload,
@@ -101,22 +100,22 @@ public class AuthToken {
         return new EncryptedToken(payload, context);
     }
 
-    private EncryptedToken getEncryptedToken(String token, TokenCipher tokenCipher, TokenHashService tokenHashService) {
+    private EncryptedToken getEncryptedToken(String token, String tag, TokenCipher tokenCipher, TokenHashService tokenHashService) {
         return tokenCipher.encrypt(
                 token,
                 TokenCipherSpec.of(
-                        getAad(),
-                        getAadHash(tokenHashService)
+                        getAad(tag),
+                        getAadHash(tag, tokenHashService)
                 )
         );
     }
 
-    private byte[] getAad() {
-        return user.getId().toString().getBytes(StandardCharsets.UTF_8);
+    private byte[] getAad(String tag) {
+        return tag.getBytes(StandardCharsets.UTF_8);
     }
 
-    private byte[] getAadHash(TokenHashService tokenHashService) {
-        return tokenHashService.hash(user.getId().toString());
+    private byte[] getAadHash(String tag, TokenHashService tokenHashService) {
+        return tokenHashService.hash(tag);
     }
 
     public boolean isRevoked() {
