@@ -11,6 +11,7 @@ public record GoogleProperties(
         String fromDisplayName,
         String clientId,
         String clientSecret,
-        String refreshToken
+        String refreshToken,
+        String redirectUri
 ) {
 }

@@ -30,7 +30,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 @Entity
 @Table(name = DatabaseNames.Tables.PROVIDER_TOKENS, schema = DatabaseNames.Schemas.MME_BOT,
         uniqueConstraints = {
-                @UniqueConstraint(name = "uq_provider_client", columnNames = {"provider", "client_id"})
+                @UniqueConstraint(name = "uq_provider_client", columnNames = {"provider"})
         })
 public class ProviderToken {
 
@@ -39,7 +39,7 @@ public class ProviderToken {
     @Column(name = "provider_token_id")
     private Long id;
 
-    @Column(name = "provider", nullable = false, length = 50)
+    @Column(name = "provider", nullable = false, length = 50, unique = true)
     private String provider;
 
     @Column(name = "client_id", nullable = false, length = 255)
@@ -90,6 +90,25 @@ public class ProviderToken {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    public String getAuthorizationCode() {
+        byte[] aesKey = encryptionContext.getKey().getKeyMaterial();
+        byte[] iv = encryptionContext.getIv();
+        byte[] tag = encryptionContext.getTag();
+        byte[] addHash = encryptionContext.getAadHash();
+        String state = clientId.trim();
+
+
+        return authorizationCode;
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
 
     public void applyAuthorizationCode(String encryptedCode, EncryptionContext context) {
         this.authorizationCode = encryptedCode;

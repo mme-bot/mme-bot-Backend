@@ -1,6 +1,8 @@
 package me.mmebot.auth.service;
 
 import jakarta.transaction.Transactional;
+
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -20,6 +22,8 @@ import me.mmebot.core.service.AesGcmEncryptor.EncryptionResult;
 import me.mmebot.core.service.EncryptionContextFactory;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 @Service
@@ -37,12 +41,23 @@ public class ProviderTokenService {
     private final GoogleProperties googleProperties;
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public void refreshAccessToken(String refreshToken) {
+    public void refreshAccessToken() {
+        ProviderToken providerToken = providerTokenRepository.findByProvider(PROVIDER_GOOGLE)
+                .orElseThrow(GoogleOAuthException::requestFailed);
+
         Map<String, String> params = new HashMap<>();
+
+        String decryptCode = encryptor.decrypt(
+                providerToken.getAuthorizationCode(),
+                providerToken.getEncryptionContext(),
+                googleProperties.clientId().getBytes(StandardCharsets.UTF_8)
+        );
+
         params.put("client_id", googleProperties.clientId());
         params.put("client_secret", googleProperties.clientSecret());
-        params.put("refresh_token", refreshToken);
-        params.put("grant_type", "refresh_token");
+        params.put("code", decryptCode);
+        params.put("redirect_uri", googleProperties.redirectUri());
+        params.put("grant_type", "authorization_code");
 
         requestToken(params);
     }
@@ -52,15 +67,13 @@ public class ProviderTokenService {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-            String body = params.entrySet().stream()
-                    .map(e -> e.getKey() + "=" + e.getValue())
-                    .reduce((a, b) -> a + "&" + b)
-                    .orElse("");
+            MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+            form.setAll(params);
 
-            HttpEntity<String> entity = new HttpEntity<>(body, headers);
+            HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
 
-            ResponseEntity<GoogleTokenResponse> response = restTemplate.exchange(
-                    googleProperties.tokenUrl(), HttpMethod.POST, entity, GoogleTokenResponse.class
+            ResponseEntity<GoogleTokenResponse> response = restTemplate.postForEntity(
+                    googleProperties.tokenUrl(), entity, GoogleTokenResponse.class
             );
 
             if (response.getStatusCode().is2xxSuccessful()) {
@@ -70,9 +83,11 @@ public class ProviderTokenService {
                     throw GoogleOAuthException.requestFailed();
                 }
                 storeProviderTokens(tokenResponse);
+            } else {
+                log.error("request token failed, status code: {}", response.getStatusCode());
+                throw GoogleOAuthException.failedGetRefreshToken(response.getStatusCode());
             }
-            log.error("request token failed, status code: {}", response.getStatusCode());
-            throw GoogleOAuthException.failedGetRefreshToken(response.getStatusCode());
+            log.info("request token finished");
         } catch (Exception ex) {
             log.error("request token failed: {}", ex.getMessage(), ex);
             throw GoogleOAuthException.requestFailed();
@@ -113,12 +128,12 @@ public class ProviderTokenService {
         log.info("Stored provider tokens for provider {} and client {}", PROVIDER_GOOGLE, clientId);
     }
 
-    public void storeGoogleAuthorizationCode(String authorizationCode, String state) {
+    public void storeGoogleAuthorizationCode(String authorizationCode) {
         String normalizedCode = normalizeCode(authorizationCode);
         String clientId = resolveClientId();
-        String normalizedState = normalize(state);
-        byte[] aad = normalizedState != null ? normalizedState.getBytes(StandardCharsets.UTF_8) : null;
-        byte[] aadHash = normalizedState != null ? tokenHashService.hash(normalizedState) : null;
+        String normalizedState = clientId;
+        byte[] aad = normalizedState.getBytes(StandardCharsets.UTF_8);
+        byte[] aadHash = tokenHashService.hash(normalizedState);
 
         EncryptionContext context = encryptionContextFactory.createContext(aadHash);
         EncryptionResult encrypted = encryptor.encrypt(normalizedCode, context, aad);
@@ -153,11 +168,4 @@ public class ProviderTokenService {
         return clientId.trim();
     }
 
-    private String normalize(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
-    }
 }
