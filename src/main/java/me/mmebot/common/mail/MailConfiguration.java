@@ -1,6 +1,7 @@
 package me.mmebot.common.mail;
 
 import lombok.extern.slf4j.Slf4j;
+import me.mmebot.auth.service.ProviderTokenService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -11,10 +12,10 @@ import org.springframework.context.annotation.Configuration;
 public class MailConfiguration {
 
     @Bean
-    @ConditionalOnProperty(prefix = "gmail", name = "enabled", havingValue = "true")
-    public MailSender gmailMailSender(GoogleProperties properties) {
-        log.info("gmail.enabled=true. Configuring GmailMailSender for {}", properties.userEmail());
-        return new GmailMailSender(properties);
+    @ConditionalOnProperty(prefix = "google", name = "enabled", havingValue = "true")
+    public MailSender gmailMailSender(GoogleProperties properties, ProviderTokenService providerTokenService) {
+        log.info("google.enabled=true. Configuring GmailMailSender for {}", properties.userEmail());
+        return new GmailMailSender(properties, providerTokenService);
     }
 
     @Bean

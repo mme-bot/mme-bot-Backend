@@ -1,6 +1,9 @@
 package me.mmebot.auth.service;
 
 import jakarta.transaction.Transactional;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -11,8 +14,14 @@ import me.mmebot.auth.domain.EmailVerification;
 import me.mmebot.auth.exception.EmailVerificationException;
 import me.mmebot.auth.repository.EmailVerificationRepository;
 import me.mmebot.auth.service.AuthServiceRecords.SendEmailVerificationResult;
+import me.mmebot.common.mail.MailMessage;
+import me.mmebot.common.mail.MailSender;
+import me.mmebot.common.mail.MailSendingException;
 import me.mmebot.core.service.EncryptionContextFactory;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
+import org.springframework.util.FileCopyUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -25,11 +34,16 @@ public class EmailVerificationService {
     private static final Duration EXPIRATION = Duration.ofMinutes(5);
     private static final Duration RATE_LIMIT_WINDOW = Duration.ofHours(1);
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    private static final String EMAIL_TEMPLATE_LOCATION = "classpath:templates/mail/mail_code.html";
+    private static final String EMAIL_SUBJECT = "[mmebot] 이메일 인증코드";
 
     private final EmailVerificationRepository repository;
     private final EncryptionContextFactory encryptionContextFactory;
     private final TokenHashService tokenHashService;
+    private final MailSender mailSender;
+    private final ResourceLoader resourceLoader;
     private final SecureRandom secureRandom = new SecureRandom();
+    private volatile String cachedTemplate;
 
     public SendEmailVerificationResult send(String email) {
         String normalizedEmail = normalizeEmail(email);
@@ -56,6 +70,7 @@ public class EmailVerificationService {
                 .build();
 
         EmailVerification saved = repository.save(verification);
+        sendVerificationEmail(saved.getEmail(), code);
         log.info("Email verification code generated successfully: verificationId={}", saved.getId());
         return new SendEmailVerificationResult(saved.getId(), code);
     }
@@ -122,5 +137,41 @@ public class EmailVerificationService {
             throw EmailVerificationException.emailRequired();
         }
         return email.trim().toLowerCase();
+    }
+
+    private void sendVerificationEmail(String recipientEmail, String code) {
+        String template = resolveTemplate();
+        String body = template.replace("{{code}}", code);
+        MailMessage message = MailMessage.html(recipientEmail, EMAIL_SUBJECT, body);
+        mailSender.send(message);
+    }
+
+    private String resolveTemplate() {
+        String template = cachedTemplate;
+        if (template != null) {
+            return template;
+        }
+        synchronized (this) {
+            if (cachedTemplate == null) {
+                cachedTemplate = loadTemplate();
+            }
+            return cachedTemplate;
+        }
+    }
+
+    private String loadTemplate() {
+        try {
+            Resource resource = resourceLoader.getResource(EMAIL_TEMPLATE_LOCATION);
+            if (!resource.exists()) {
+                log.error("Email template not found at {}", EMAIL_TEMPLATE_LOCATION);
+                throw new MailSendingException("Email verification template not found");
+            }
+            try (InputStreamReader reader = new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8)) {
+                return FileCopyUtils.copyToString(reader);
+            }
+        } catch (IOException ex) {
+            log.error("Failed to load email template from {}", EMAIL_TEMPLATE_LOCATION, ex);
+            throw new MailSendingException("Failed to load email verification template", ex);
+        }
     }
 }

@@ -19,7 +19,9 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
+
 import lombok.extern.slf4j.Slf4j;
+import me.mmebot.auth.service.ProviderTokenService;
 import org.springframework.http.MediaType;
 
 @Slf4j
@@ -31,13 +33,16 @@ class GmailMailSender implements MailSender {
     private final GoogleCredential credential;
     private final Session mailSession;
     private final InternetAddress fromAddress;
+    private final ProviderTokenService providerTokenService;
+    private final GoogleProperties properties;
 
-    GmailMailSender(GoogleProperties properties) {
-        Objects.requireNonNull(properties, "properties");
+    GmailMailSender(GoogleProperties properties, ProviderTokenService providerTokenService) {
+        this.properties = Objects.requireNonNull(properties, "properties");
+        this.providerTokenService = Objects.requireNonNull(providerTokenService, "providerTokenService");
         this.mailSession = Session.getInstance(new Properties());
-        this.credential = createCredential(properties);
-        this.gmail = createGmailClient(credential, properties);
-        this.fromAddress = createFromAddress(properties);
+        this.credential = createCredential();
+        this.gmail = createGmailClient(credential);
+        this.fromAddress = createFromAddress();
     }
 
     @Override
@@ -93,16 +98,18 @@ class GmailMailSender implements MailSender {
         }
     }
 
-    private GoogleCredential createCredential(GoogleProperties properties) {
+    private GoogleCredential createCredential() {
         try {
             HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
             GoogleCredential credential = new GoogleCredential.Builder()
                     .setTransport(transport)
                     .setJsonFactory(JSON_FACTORY)
-                    .setClientSecrets(requireNonBlank(properties.clientId(), "gmail.client-id"),
-                            requireNonBlank(properties.clientSecret(), "gmail.client-secret"))
+                    .setClientSecrets(requireNonBlank(properties.clientId(), "google.client-id"),
+                            requireNonBlank(properties.clientSecret(), "google.client-secret"))
                     .build();
-            credential.setRefreshToken(requireNonBlank(properties.refreshToken(), "gmail.refresh-token"));
+
+            String refreshToken = providerTokenService.getRefreshToken(ProviderConstant.GOOGLE);
+            credential.setRefreshToken(refreshToken);
             refreshCredential(credential);
             log.info("Gmail credentials initialized for user {}", properties.userEmail());
             return credential;
@@ -112,7 +119,7 @@ class GmailMailSender implements MailSender {
         }
     }
 
-    private Gmail createGmailClient(GoogleCredential credential, GoogleProperties properties) {
+    private Gmail createGmailClient(GoogleCredential credential) {
         Gmail gmailClient = new Gmail.Builder(credential.getTransport(), JSON_FACTORY, credential)
                 .setApplicationName(requireNonBlank(properties.applicationName(), "gmail.application-name"))
                 .build();
@@ -120,7 +127,7 @@ class GmailMailSender implements MailSender {
         return gmailClient;
     }
 
-    private InternetAddress createFromAddress(GoogleProperties properties) {
+    private InternetAddress createFromAddress() {
         try {
             String address = requireNonBlank(properties.userEmail(), "gmail.user-email");
             String personal = properties.fromDisplayName();

@@ -16,6 +16,8 @@ import me.mmebot.auth.repository.EmailVerificationRepository;
 import me.mmebot.auth.service.AuthServiceRecords.SendEmailVerificationResult;
 import me.mmebot.core.domain.EncryptionContext;
 import me.mmebot.core.service.EncryptionContextFactory;
+import me.mmebot.common.mail.MailMessage;
+import me.mmebot.common.mail.MailSender;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -23,6 +25,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.ResourceLoader;
 
 @ExtendWith(MockitoExtension.class)
 class EmailVerificationServiceTest {
@@ -35,6 +40,12 @@ class EmailVerificationServiceTest {
 
     @Mock
     private TokenHashService tokenHashService;
+
+    @Mock
+    private MailSender mailSender;
+
+    @Mock
+    private ResourceLoader resourceLoader;
 
     @InjectMocks
     private EmailVerificationService emailVerificationService;
@@ -74,6 +85,8 @@ class EmailVerificationServiceTest {
         when(tokenHashService.hash(any(String.class))).thenReturn(aadHash);
         EncryptionContext context = EncryptionContext.builder().id(5L).aadHash(aadHash).build();
         when(encryptionContextFactory.createContext(any(byte[].class))).thenReturn(context);
+        when(resourceLoader.getResource("classpath:templates/mail/mail_code.html"))
+                .thenReturn(new ClassPathResource("templates/mail/mail_code.html"));
         when(repository.save(any(EmailVerification.class))).thenAnswer(invocation -> {
             EmailVerification candidate = invocation.getArgument(0);
             return EmailVerification.builder()
@@ -97,6 +110,13 @@ class EmailVerificationServiceTest {
         assertThat(saved.getEmail()).isEqualTo("user@example.com");
         assertThat(saved.getEncryptionContext()).isEqualTo(context);
         verify(tokenHashService).hash(saved.getEmail() + ":" + saved.getCode());
+
+        ArgumentCaptor<MailMessage> mailCaptor = ArgumentCaptor.forClass(MailMessage.class);
+        verify(mailSender).send(mailCaptor.capture());
+        MailMessage sentMail = mailCaptor.getValue();
+        assertThat(sentMail.to()).containsExactly("user@example.com");
+        assertThat(sentMail.contentType()).isEqualTo(MediaType.TEXT_HTML);
+        assertThat(sentMail.body()).contains(result.code());
     }
 
     @Test

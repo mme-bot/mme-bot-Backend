@@ -11,6 +11,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -22,6 +24,7 @@ import me.mmebot.auth.domain.token.EncryptedToken;
 import me.mmebot.auth.domain.token.TokenCipher;
 import me.mmebot.auth.domain.token.TokenCipherException;
 import me.mmebot.auth.domain.token.TokenCipherSpec;
+import me.mmebot.auth.service.TokenHashService;
 import me.mmebot.common.persistence.DatabaseNames;
 import me.mmebot.core.domain.EncryptionContext;
 import org.hibernate.annotations.CreationTimestamp;
@@ -105,7 +108,10 @@ public class ProviderToken {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
-    public void storeAuthorizationCode(EncryptedToken encryptedToken) {
+    public void storeAuthorizationCode(String code, TokenHashService tokenHashService, TokenCipher tokenCipher) {
+        TokenCipherSpec spec = TokenCipherSpec.of(getAad(), getAadHash(tokenHashService));
+        EncryptedToken encryptedToken = tokenCipher.encrypt(code, spec);
+
         requireToken(encryptedToken, "authorization code");
         this.authorizationCode = encryptedToken.payload();
         this.authorizationCodeContext = encryptedToken.context();
@@ -113,7 +119,11 @@ public class ProviderToken {
         this.errorCount = 0;
     }
 
-    public void storeRefreshToken(EncryptedToken encryptedToken) {
+    public void storeRefreshToken(String refreshToken, TokenCipher tokenCipher, TokenHashService tokenHashService) {
+        byte[] aad = getAad();
+        byte[] aadHash = getAadHash(tokenHashService);
+
+        EncryptedToken encryptedToken = tokenCipher.encrypt(refreshToken, TokenCipherSpec.of(aad, aadHash));
         requireToken(encryptedToken, "refresh token");
         this.refreshToken = encryptedToken.payload();
         this.refreshTokenContext = encryptedToken.context();
@@ -123,11 +133,25 @@ public class ProviderToken {
         this.errorCount = 0;
     }
 
-    public void storeAccessToken(EncryptedToken encryptedToken,
+    private byte[] getAad() {
+        return clientId.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private byte[] getAadHash(TokenHashService tokenHashService) {
+        return tokenHashService.hash(clientId);
+    }
+
+    public void storeAccessToken(String accessToken,
                                  OffsetDateTime expiresAt,
                                  String tokenType,
                                  String scopes,
-                                 OffsetDateTime refreshedAt) {
+                                 OffsetDateTime refreshedAt,
+                                 TokenHashService tokenHashService,
+                                 TokenCipher tokenCipher) {
+        byte[] aad = getAad();
+        byte[] aadHash = getAadHash(tokenHashService);
+        EncryptedToken encryptedToken = tokenCipher.encrypt(accessToken, TokenCipherSpec.of(aad, aadHash));
+
         requireToken(encryptedToken, "access token");
         this.accessToken = encryptedToken.payload();
         this.accessTokenContext = encryptedToken.context();
@@ -153,17 +177,16 @@ public class ProviderToken {
         return accessToken != null && accessTokenContext != null;
     }
 
-    public String decodeAuthorizationCode(TokenCipher cipher, TokenCipherSpec spec) {
-        return cipher.decrypt(asEncryptedToken(authorizationCode, authorizationCodeContext, "authorization code"),
-                specOrEmpty(spec));
+    public String decodeAuthorizationCode(TokenCipher cipher, TokenHashService tokenHashService) {
+        return cipher.decrypt(asEncryptedToken(authorizationCode, authorizationCodeContext, "authorization code"), TokenCipherSpec.of(getAad(), getAadHash(tokenHashService)));
     }
 
-    public String decodeRefreshToken(TokenCipher cipher, TokenCipherSpec spec) {
-        return cipher.decrypt(asEncryptedToken(refreshToken, refreshTokenContext, "refresh token"), specOrEmpty(spec));
+    public String decodeRefreshToken(TokenCipher cipher, TokenHashService tokenHashService) {
+        return cipher.decrypt(asEncryptedToken(refreshToken, refreshTokenContext, "refresh token"), TokenCipherSpec.of(getAad(), getAadHash(tokenHashService)));
     }
 
-    public String decodeAccessToken(TokenCipher cipher, TokenCipherSpec spec) {
-        return cipher.decrypt(asEncryptedToken(accessToken, accessTokenContext, "access token"), specOrEmpty(spec));
+    public String decodeAccessToken(TokenCipher cipher, TokenHashService tokenHashService) {
+        return cipher.decrypt(asEncryptedToken(accessToken, accessTokenContext, "access token"), TokenCipherSpec.of(getAad(), getAadHash(tokenHashService)));
     }
 
     private void requireToken(EncryptedToken encryptedToken, String label) {
