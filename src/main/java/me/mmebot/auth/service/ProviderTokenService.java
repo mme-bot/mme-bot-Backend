@@ -137,8 +137,6 @@ public class ProviderTokenService {
     public void storeGoogleAuthorizationCode(String authorizationCode) {
         String normalizedCode = normalizeCode(authorizationCode);
         String clientId = resolveClientId();
-        TokenCipherSpec spec = googleAuthorizationSpec(clientId);
-
         try {
 
             ProviderToken token = providerTokenRepository.findByProviderAndClientId(PROVIDER_GOOGLE, clientId)
