@@ -46,7 +46,7 @@ public class ProviderTokenService {
 
         String clientId = resolveClientId();
         try {
-            String authorizationCode = providerToken.decodeAuthorizationCode(tokenCipher, tokenHashService);
+            String authorizationCode = providerToken.getDecodeAuthorizationCode(tokenCipher, tokenHashService);
 
             Map<String, String> params = new HashMap<>();
             params.put("client_id", clientId);
@@ -87,11 +87,11 @@ public class ProviderTokenService {
                 log.error("request token failed, status code: {}", response.getStatusCode());
                 throw GoogleOAuthException.failedGetRefreshToken(response.getStatusCode());
             }
-            log.info("request token finished");
         } catch (Exception ex) {
             log.error("request token failed: {}", ex.getMessage(), ex);
             throw GoogleOAuthException.requestFailed();
         }
+        log.info("request token finished");
     }
 
     private void storeProviderTokens(GoogleTokenResponse tokenResponse) {
@@ -189,6 +189,6 @@ public class ProviderTokenService {
     public String getRefreshToken(String provider) {
         ProviderToken providerToken = providerTokenRepository.findByProviderAndClientId(provider, resolveClientId())
                 .orElseThrow(() -> GoogleOAuthException.failedGetRefreshToken(HttpStatus.UNAUTHORIZED));
-        return providerToken.decodeRefreshToken(tokenCipher, tokenHashService);
+        return providerToken.getDecodeRefreshToken(tokenCipher, tokenHashService);
     }
 }

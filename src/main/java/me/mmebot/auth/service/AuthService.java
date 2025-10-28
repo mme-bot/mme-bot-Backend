@@ -1,6 +1,7 @@
 package me.mmebot.auth.service;
 
 import jakarta.transaction.Transactional;
+
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -11,6 +12,7 @@ import me.mmebot.auth.domain.AuthToken;
 import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.Role;
 import me.mmebot.auth.domain.RoleName;
+import me.mmebot.auth.domain.token.TokenCipher;
 import me.mmebot.auth.exception.AuthException;
 import me.mmebot.auth.jwt.JwtPayload;
 import me.mmebot.auth.jwt.JwtProcessingException;
@@ -41,6 +43,7 @@ public class AuthService {
     private final TokenHashService tokenHashService;
     private final EncryptionContextFactory encryptionContextFactory;
     private final EmailVerificationService emailVerificationService;
+    private final TokenCipher tokenCipher;
 
     public SignInResult signIn(String email, String rawPassword, ClientMetadata metadata) {
         String normalizedEmail = normalizeEmail(email);
@@ -154,24 +157,27 @@ public class AuthService {
 
         String accessToken = jwtTokenService.createAccessToken(user.getId(), effectiveRoles);
         String refreshToken = jwtTokenService.createRefreshToken(user.getId(), effectiveRoles);
-        JwtPayload refreshPayload = parseToken(refreshToken);
-        storeRefreshToken(user, metadata, refreshPayload);
+        AuthToken authToken = storeRefreshToken(user, refreshToken, metadata);
         log.debug("Issued tokens for user {} with roles {}", user.getId(), effectiveRoles);
-        return new TokenPair(accessToken, refreshToken);
+        return new TokenPair(accessToken, authToken.getToken());
     }
 
-    private void storeRefreshToken(User user, ClientMetadata metadata, JwtPayload payload) {
-        byte[] jtiHash = tokenHashService.hash(payload.jwtId());
-        AuthToken authToken = AuthToken.builder()
-                .user(user)
-                .type(payload.tokenType())
-                .expiredAt(payload.expiresAt())
-                .userAgent(metadata != null ? metadata.userAgent() : null)
-                .ipAddress(metadata != null ? metadata.ipAddress() : null)
-                .encryptionContext(encryptionContextFactory.createContext(jtiHash))
-                .build();
+    private AuthToken storeRefreshToken(User user, String refreshToken, ClientMetadata metadata) {
+        JwtPayload payload = parseToken(refreshToken);
+        AuthToken authToken = new AuthToken(
+                user,
+                payload.tokenType(),
+                refreshToken,
+                payload.expiresAt(),
+                metadata != null ? metadata.ipAddress() : null,
+                metadata != null ? metadata.userAgent() : null,
+                tokenCipher,
+                tokenHashService
+        );
         authTokenRepository.save(authToken);
         log.debug("Stored refresh token metadata for user {}", user.getId());
+
+        return authToken;
     }
 
     private JwtPayload parseToken(String token) {

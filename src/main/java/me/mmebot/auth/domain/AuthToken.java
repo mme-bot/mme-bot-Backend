@@ -12,7 +12,14 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import me.mmebot.auth.domain.token.EncryptedToken;
+import me.mmebot.auth.domain.token.TokenCipher;
+import me.mmebot.auth.domain.token.TokenCipherException;
+import me.mmebot.auth.domain.token.TokenCipherSpec;
+import me.mmebot.auth.service.TokenHashService;
 import me.mmebot.common.persistence.DatabaseNames;
+
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -46,6 +53,9 @@ public class AuthToken {
     @Column(nullable = false, length = 32)
     private AuthTokenType type;
 
+    @Column(name = "token", columnDefinition = "TEXT")
+    private String token;
+
     @CreationTimestamp
     @Column(name = "issued_at", nullable = false, updatable = false)
     private OffsetDateTime issuedAt;
@@ -65,6 +75,49 @@ public class AuthToken {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "encryption_context_id", nullable = false)
     private EncryptionContext encryptionContext;
+
+    public AuthToken(User user, AuthTokenType type, String token, OffsetDateTime expiredAt, String ipAddress, String userAgent, TokenCipher tokenCipher, TokenHashService tokenHashService) {
+        this.user = user;
+        EncryptedToken encryptedToken = getEncryptedToken(token, tokenCipher, tokenHashService);
+        this.type = type;
+        this.token = encryptedToken.payload();
+        this.expiredAt = expiredAt;
+        this.ipAddress = ipAddress;
+        this.encryptionContext = encryptedToken.context();
+        this.userAgent = userAgent;
+    }
+
+    public String getDecodeToken(TokenCipher cipher, TokenHashService tokenHashService) {
+        return cipher.decrypt(asEncryptedToken(this.token, this.encryptionContext, type.name()), TokenCipherSpec.of(getAad(), getAadHash(tokenHashService)));
+
+    }
+
+    private EncryptedToken asEncryptedToken(String payload,
+                                            EncryptionContext context,
+                                            String label) {
+        if (payload == null || context == null) {
+            throw new TokenCipherException("No encrypted " + label + " available");
+        }
+        return new EncryptedToken(payload, context);
+    }
+
+    private EncryptedToken getEncryptedToken(String token, TokenCipher tokenCipher, TokenHashService tokenHashService) {
+        return tokenCipher.encrypt(
+                token,
+                TokenCipherSpec.of(
+                        getAad(),
+                        getAadHash(tokenHashService)
+                )
+        );
+    }
+
+    private byte[] getAad() {
+        return user.getId().toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private byte[] getAadHash(TokenHashService tokenHashService) {
+        return tokenHashService.hash(user.getId().toString());
+    }
 
     public boolean isRevoked() {
         return revokedAt != null;

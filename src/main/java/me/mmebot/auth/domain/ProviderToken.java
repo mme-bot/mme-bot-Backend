@@ -177,15 +177,15 @@ public class ProviderToken {
         return accessToken != null && accessTokenContext != null;
     }
 
-    public String decodeAuthorizationCode(TokenCipher cipher, TokenHashService tokenHashService) {
+    public String getDecodeAuthorizationCode(TokenCipher cipher, TokenHashService tokenHashService) {
         return cipher.decrypt(asEncryptedToken(authorizationCode, authorizationCodeContext, "authorization code"), TokenCipherSpec.of(getAad(), getAadHash(tokenHashService)));
     }
 
-    public String decodeRefreshToken(TokenCipher cipher, TokenHashService tokenHashService) {
+    public String getDecodeRefreshToken(TokenCipher cipher, TokenHashService tokenHashService) {
         return cipher.decrypt(asEncryptedToken(refreshToken, refreshTokenContext, "refresh token"), TokenCipherSpec.of(getAad(), getAadHash(tokenHashService)));
     }
 
-    public String decodeAccessToken(TokenCipher cipher, TokenHashService tokenHashService) {
+    public String getDecodeAccessToken(TokenCipher cipher, TokenHashService tokenHashService) {
         return cipher.decrypt(asEncryptedToken(accessToken, accessTokenContext, "access token"), TokenCipherSpec.of(getAad(), getAadHash(tokenHashService)));
     }
 

@@ -94,7 +94,7 @@ class ProviderTokenTest {
     }
 
     @Test
-    void decodeRefreshToken_usesClientSpecificParameters() {
+    void getDecodeRefreshToken_usesClientSpecificParameters() {
         EncryptionContext context = sampleContext();
         ProviderToken token = ProviderToken.builder()
                 .provider("GOOGLE")
@@ -108,7 +108,7 @@ class ProviderTokenTest {
         when(tokenCipher.decrypt(any(EncryptedToken.class), any(TokenCipherSpec.class)))
                 .thenReturn("plain-refresh");
 
-        String result = token.decodeRefreshToken(tokenCipher, tokenHashService);
+        String result = token.getDecodeRefreshToken(tokenCipher, tokenHashService);
 
         assertThat(result).isEqualTo("plain-refresh");
 
@@ -122,7 +122,7 @@ class ProviderTokenTest {
     }
 
     @Test
-    void decodeRefreshToken_whenMissingEncryptedContext_throwsTokenCipherException() {
+    void getDecodeRefreshToken_whenMissingEncryptedContext_throwsTokenCipherException() {
         ProviderToken token = ProviderToken.builder()
                 .provider("GOOGLE")
                 .clientId("client-id")
@@ -130,7 +130,7 @@ class ProviderTokenTest {
                 .refreshTokenContext(null)
                 .build();
 
-        assertThatThrownBy(() -> token.decodeRefreshToken(tokenCipher, tokenHashService))
+        assertThatThrownBy(() -> token.getDecodeRefreshToken(tokenCipher, tokenHashService))
                 .isInstanceOf(TokenCipherException.class);
     }
 

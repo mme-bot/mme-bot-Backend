@@ -97,6 +97,7 @@ CREATE TABLE mmebot.sns_users (
 CREATE TABLE mmebot.auth_token (
     auth_token_id           BIGSERIAL PRIMARY KEY,
     user_id                 BIGINT NOT NULL,
+    token                   TEXT NOT NULL,
     type                    VARCHAR(32) NOT NULL,
     issued_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
     expired_at              TIMESTAMPTZ NOT NULL,
