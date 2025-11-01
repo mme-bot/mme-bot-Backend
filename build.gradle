@@ -42,8 +42,10 @@ dependencies {
     implementation 'com.google.api-client:google-api-client:1.35.2'
     implementation 'com.google.apis:google-api-services-gmail:v1-rev110-1.25.0'
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.39.1'
+    // redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
-	compileOnly 'org.projectlombok:lombok'
+    compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'

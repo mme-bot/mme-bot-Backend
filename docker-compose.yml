@@ -21,6 +21,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - mmebot-net
 
@@ -46,8 +48,26 @@ services:
     networks:
       - mmebot-net
 
+  redis:
+    image: redis:7.4.0
+    container_name: mmebot-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mmebot-net
+
 volumes:
   pgdata:
+  redisdata:
 
 networks:
   mmebot-net:
