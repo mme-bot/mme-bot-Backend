@@ -33,6 +33,10 @@ public class AuthException extends ApiException {
         return new AuthException(HttpStatus.NOT_FOUND, "User not found", "auth.user_not_found");
     }
 
+    public static AuthException tokenNotFound() {
+        return new AuthException(HttpStatus.NOT_FOUND, "Token not found", "auth.token_not_found");
+    }
+
     public static AuthException refreshTokenMissing() {
         return new AuthException(HttpStatus.BAD_REQUEST, "Refresh token is not registered", "auth.refresh_missing");
     }

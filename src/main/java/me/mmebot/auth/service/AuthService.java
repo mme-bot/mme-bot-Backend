@@ -105,7 +105,22 @@ public class AuthService {
     }
 
     public TokenPair reissue(Long userId, String refreshToken, ClientMetadata metadata) {
-        AuthToken authToken = authTokenRepository.findByUserIdAndToken(userId, refreshToken).getFirst();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    log.warn("Token reissue failed: user {} not found", userId);
+                    return AuthException.userNotFound();
+                });
+        if (user.isDeleted()) {
+            log.warn("Token reissue failed: user {} is marked as deleted", userId);
+            throw AuthException.deletedAccount();
+        }
+
+        AuthToken authToken = authTokenRepository.findByUserIdAndToken(userId, refreshToken)
+                .orElseThrow(() -> {
+                    log.warn("Token reissue failed: user's {} token not found", userId);
+                    return AuthException.tokenNotFound();
+                });
+
         String decodeToken = authToken.getDecodeToken(userId.toString(), tokenCipher, tokenHashService);
         JwtPayload payload = parseToken(decodeToken);
         if (!Objects.equals(payload.userId(), userId)) {
@@ -116,16 +131,6 @@ public class AuthService {
         if (payload.tokenType() != AuthTokenType.REFRESH) {
             log.warn("Token reissue failed: invalid token type {} for user {}", payload.tokenType(), userId);
             throw AuthException.invalidTokenType();
-        }
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.warn("Token reissue failed: user {} not found", userId);
-                    return AuthException.userNotFound();
-                });
-        if (user.isDeleted()) {
-            log.warn("Token reissue failed: user {} is marked as deleted", userId);
-            throw AuthException.deletedAccount();
         }
 
         byte[] jtiHash = tokenHashService.hash(userId.toString());

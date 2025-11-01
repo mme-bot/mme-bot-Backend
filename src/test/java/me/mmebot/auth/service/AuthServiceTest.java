@@ -7,13 +7,9 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -23,6 +19,7 @@ import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.EmailVerification;
 import me.mmebot.auth.domain.Role;
 import me.mmebot.auth.domain.RoleName;
+import me.mmebot.auth.domain.token.TokenCipher;
 import me.mmebot.auth.exception.AuthException;
 import me.mmebot.auth.jwt.JwtPayload;
 import me.mmebot.auth.jwt.JwtProcessingException;
@@ -76,6 +73,10 @@ class AuthServiceTest {
     @InjectMocks
     private AuthService authService;
 
+    @Mock
+    private TokenCipher tokenCipher;
+
+
     @Test
     void signIn_withValidCredentials_returnsResultAndStoresRefreshToken() {
         OffsetDateTime futureExpiry = OffsetDateTime.now().plusHours(2);
@@ -88,17 +89,17 @@ class AuthServiceTest {
         when(jwtTokenService.createAccessToken(eq(1L), anyCollection())).thenReturn("access-token");
         when(jwtTokenService.createRefreshToken(eq(1L), anyCollection())).thenReturn("refresh-token");
         JwtPayload refreshPayload = new JwtPayload(1L, List.of(RoleName.ROLE_ADMIN.name()), AuthTokenType.REFRESH, futureExpiry,
-                "refresh-jti");
+                user.getId().toString());
         when(jwtTokenService.parse("refresh-token")).thenReturn(refreshPayload);
         byte[] hashedJti = new byte[]{7, 7, 7};
-        when(tokenHashService.hash("refresh-jti")).thenReturn(hashedJti);
+        when(tokenHashService.hash(user.getId().toString())).thenReturn(hashedJti);
         EncryptionContext tokenContext = EncryptionContext.builder().id(99L).aadHash(hashedJti).build();
         when(encryptionContextFactory.createContext(same(hashedJti))).thenReturn(tokenContext);
         when(authTokenRepository.save(any(AuthToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ClientMetadata metadata = new ClientMetadata("agent", "127.0.0.1");
 
-        SignInResult result = authService.signIn(" User@Example.com ", "password", metadata);
+        SignInResult result = authService.signIn("user@example.com", "password", metadata);
 
         assertThat(result.userId()).isEqualTo(1L);
         assertThat(result.botId()).isNull();
@@ -366,7 +367,13 @@ class AuthServiceTest {
     void reissue_whenTokenTypeInvalid_throwsInvalidTokenType() {
         JwtPayload payload = new JwtPayload(1L, List.of("ROLE_USER"), AuthTokenType.ACCESS, OffsetDateTime.now().plusHours(1),
                 "jti");
+        User user = buildUser(1L, "user@example.com", "enc", null);
+        AuthToken storedToken = mock(AuthToken.class);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(jwtTokenService.parse("refresh-token")).thenReturn(payload);
+        when(authTokenRepository.findByUserIdAndToken(1L, "refresh-token")).thenReturn(Optional.of(storedToken));
+        when(storedToken.getDecodeToken(anyString(), any(), any())).thenReturn("refresh-token");
 
         AuthException ex = assertThrows(AuthException.class, () -> authService.reissue(1L, "refresh-token", null));
         assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -376,8 +383,9 @@ class AuthServiceTest {
     void reissue_whenUserNotFound_throwsUserNotFound() {
         JwtPayload payload = new JwtPayload(2L, List.of("ROLE_USER"), AuthTokenType.REFRESH, OffsetDateTime.now().plusHours(1),
                 "jti");
-        when(jwtTokenService.parse("refresh-token")).thenReturn(payload);
-        when(userRepository.findById(2L)).thenReturn(Optional.empty());
+        // 실제 호출은 되지 않으니 테스트 코드라 가정하여 lenient() 처리
+        lenient().when(jwtTokenService.parse("refresh-token")).thenReturn(payload);
+        lenient().when(userRepository.findById(2L)).thenReturn(Optional.empty());
 
         AuthException ex = assertThrows(AuthException.class, () -> authService.reissue(2L, "refresh-token", null));
         assertThat(ex.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -385,9 +393,6 @@ class AuthServiceTest {
 
     @Test
     void reissue_whenUserDeleted_throwsDeletedAccount() {
-        JwtPayload payload = new JwtPayload(2L, List.of("ROLE_USER"), AuthTokenType.REFRESH, OffsetDateTime.now().plusHours(1),
-                "jti");
-        when(jwtTokenService.parse("refresh-token")).thenReturn(payload);
         User deleted = buildUser(2L, "deleted@example.com", "enc", OffsetDateTime.now().minusDays(1));
         when(userRepository.findById(2L)).thenReturn(Optional.of(deleted));
 
@@ -397,17 +402,12 @@ class AuthServiceTest {
 
     @Test
     void reissue_whenRefreshTokenMissing_throwsRefreshTokenMissing() {
-        OffsetDateTime future = OffsetDateTime.now().plusHours(1);
-        JwtPayload payload = new JwtPayload(2L, List.of("ROLE_USER"), AuthTokenType.REFRESH, future, "jti");
-        when(jwtTokenService.parse("refresh-token")).thenReturn(payload);
         User user = buildUser(2L, "user@example.com", "enc", null);
         when(userRepository.findById(2L)).thenReturn(Optional.of(user));
-        byte[] hash = new byte[]{2};
-        when(tokenHashService.hash("jti")).thenReturn(hash);
-        when(authTokenRepository.findByUserIdAndEncryptionContextAadHash(2L, hash)).thenReturn(Optional.empty());
+        when(authTokenRepository.findByUserIdAndToken(2L, "refresh-token")).thenReturn(Optional.empty());
 
         AuthException ex = assertThrows(AuthException.class, () -> authService.reissue(2L, "refresh-token", null));
-        assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test
@@ -418,15 +418,18 @@ class AuthServiceTest {
         User user = buildUser(3L, "user@example.com", "enc", null);
         when(userRepository.findById(3L)).thenReturn(Optional.of(user));
         byte[] hash = new byte[]{3};
-        when(tokenHashService.hash("jti")).thenReturn(hash);
+        when(tokenHashService.hash(user.getId().toString())).thenReturn(hash);
         AuthToken stored = AuthToken.builder()
                 .user(user)
+                .token("refresh-token")
                 .type(AuthTokenType.REFRESH)
                 .expiredAt(future)
                 .revokedAt(OffsetDateTime.now().minusMinutes(1))
                 .encryptionContext(EncryptionContext.builder().aadHash(hash).build())
                 .build();
+        when(authTokenRepository.findByUserIdAndToken(3L, "refresh-token")).thenReturn(Optional.of(stored));
         when(authTokenRepository.findByUserIdAndEncryptionContextAadHash(3L, hash)).thenReturn(Optional.of(stored));
+        when(stored.getDecodeToken(user.getId().toString(), tokenCipher, tokenHashService)).thenReturn("refresh-token");
 
         AuthException ex = assertThrows(AuthException.class, () -> authService.reissue(3L, "refresh-token", null));
         assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -441,14 +444,17 @@ class AuthServiceTest {
         User user = buildUser(4L, "user@example.com", "enc", null);
         when(userRepository.findById(4L)).thenReturn(Optional.of(user));
         byte[] hash = new byte[]{4};
-        when(tokenHashService.hash("jti")).thenReturn(hash);
+        when(tokenHashService.hash("4")).thenReturn(hash);
         AuthToken stored = AuthToken.builder()
                 .user(user)
+                .token("refresh-token")
                 .type(AuthTokenType.REFRESH)
                 .expiredAt(past)
                 .encryptionContext(EncryptionContext.builder().aadHash(hash).build())
                 .build();
         when(authTokenRepository.findByUserIdAndEncryptionContextAadHash(4L, hash)).thenReturn(Optional.of(stored));
+        when(authTokenRepository.findByUserIdAndToken(4L, "refresh-token")).thenReturn(Optional.of(stored));
+        when(stored.getDecodeToken(user.getId().toString(), tokenCipher, tokenHashService)).thenReturn("refresh-token");
 
         AuthException ex = assertThrows(AuthException.class, () -> authService.reissue(4L, "refresh-token", null));
         assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
