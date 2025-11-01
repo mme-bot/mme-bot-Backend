@@ -12,7 +12,6 @@ import me.mmebot.auth.domain.AuthToken;
 import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.Role;
 import me.mmebot.auth.domain.RoleName;
-import me.mmebot.auth.domain.token.EncryptedToken;
 import me.mmebot.auth.domain.token.TokenCipher;
 import me.mmebot.auth.exception.AuthException;
 import me.mmebot.auth.jwt.JwtPayload;
@@ -57,7 +56,7 @@ public class AuthService {
 
         if (user.isDeleted()) {
             log.warn("Sign-in failed: user {} is marked as deleted", user.getId());
-            throw AuthException.deletedAccount();
+            throw AuthException.invalidCredentials(); // 삭제한 유저인 거 굳이 웹에 보여줄 필요 없음
         }
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
             log.warn("Sign-in failed: invalid credentials for {}", normalizedEmail);
@@ -74,11 +73,11 @@ public class AuthService {
         return new SignInResult(user.getId(), botId, user.getNickname(), tokens.accessToken(), tokens.refreshToken());
     }
 
+    @Transactional
     public void signUp(SignUpCommand command) {
         String normalizedEmail = normalizeEmail(command.email());
         log.info("Attempting sign-up for {}", normalizedEmail);
         userRepository.findByEmail(normalizedEmail)
-                .filter(existing -> !existing.isDeleted())
                 .ifPresent(existing -> {
                     log.warn("Sign-up failed: {} already in use", normalizedEmail);
                     throw AuthException.duplicateEmail();
@@ -121,20 +120,21 @@ public class AuthService {
                     return AuthException.tokenNotFound();
                 });
 
-        String decodeToken = authToken.getDecodeToken(userId.toString(), tokenCipher, tokenHashService);
-        JwtPayload payload = parseToken(decodeToken);
-        if (!Objects.equals(payload.userId(), userId)) {
+        String decodedToken = authToken.getDecodeToken(userId.toString(), tokenCipher, tokenHashService);
+        JwtPayload storedPayload = parseToken(decodedToken);
+        if (!Objects.equals(storedPayload.userId(), userId)) {
             log.warn("Token reissue failed: refresh token user mismatch (expected {}, actual {})", userId,
-                    payload.userId());
+                    storedPayload.userId());
             throw AuthException.refreshTokenUserMismatch();
         }
-        if (payload.tokenType() != AuthTokenType.REFRESH) {
-            log.warn("Token reissue failed: invalid token type {} for user {}", payload.tokenType(), userId);
+        if (storedPayload.tokenType() != AuthTokenType.REFRESH) {
+            log.warn("Token reissue failed: invalid token type {} for user {}", storedPayload.tokenType(), userId);
             throw AuthException.invalidTokenType();
         }
 
-        byte[] jtiHash = tokenHashService.hash(userId.toString());
-        AuthToken storedToken = authTokenRepository.findByUserIdAndEncryptionContextAadHash(userId, jtiHash)
+        byte[] userHash = hashUserTag(userId);
+
+        AuthToken storedToken = authTokenRepository.findByUserIdAndEncryptionContextAadHash(userId, userHash)
                 .orElseThrow(() -> {
                     log.warn("Token reissue failed: refresh token missing for user {}", userId);
                     return AuthException.refreshTokenMissing();
@@ -163,6 +163,9 @@ public class AuthService {
                 ? List.of(RoleName.ROLE_USER)
                 : roleNames;
 
+        /**
+         * TODO Access token 암호화 후, Redis 에 저장하는 로직 추가 필요
+         */
         String accessToken = jwtTokenService.createAccessToken(user.getId(), effectiveRoles);
         String refreshToken = jwtTokenService.createRefreshToken(user.getId(), effectiveRoles);
         AuthToken authToken = storeRefreshToken(user, refreshToken, metadata);
@@ -172,6 +175,7 @@ public class AuthService {
 
     private AuthToken storeRefreshToken(User user, String refreshToken, ClientMetadata metadata) {
         JwtPayload payload = parseToken(refreshToken);
+        byte[] userHash = hashUserTag(user.getId());
         AuthToken authToken = new AuthToken(
                 user,
                 payload.tokenType(),
@@ -180,7 +184,8 @@ public class AuthService {
                 metadata != null ? metadata.ipAddress() : null,
                 metadata != null ? metadata.userAgent() : null,
                 tokenCipher,
-                tokenHashService
+                tokenHashService,
+                userHash
         );
         authTokenRepository.save(authToken);
         log.debug("Stored refresh token metadata for user {}", user.getId());
@@ -195,6 +200,14 @@ public class AuthService {
             log.error("Token parsing failed", ex);
             throw AuthException.tokenProcessingFailed("Failed to process token", ex);
         }
+    }
+
+    private byte[] hashUserTag(Long userId) {
+        if (userId == null) {
+            log.error("Token processing failed: missing user identifier for hashing");
+            throw AuthException.tokenProcessingFailed("Refresh token identifier is missing", new IllegalStateException("userId"));
+        }
+        return tokenHashService.hash(String.valueOf(userId));
     }
 
     private String normalizeEmail(String email) {

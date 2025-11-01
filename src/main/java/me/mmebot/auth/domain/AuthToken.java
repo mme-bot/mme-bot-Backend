@@ -76,9 +76,34 @@ public class AuthToken {
     @JoinColumn(name = "encryption_context_id", nullable = false)
     private EncryptionContext encryptionContext;
 
-    public AuthToken(User user, AuthTokenType type, String token, OffsetDateTime expiredAt, String ipAddress, String userAgent, TokenCipher tokenCipher, TokenHashService tokenHashService) {
+//    public AuthToken(User user,
+//                     AuthTokenType type,
+//                     String token,
+//                     OffsetDateTime expiredAt,
+//                     String ipAddress,
+//                     String userAgent,
+//                     TokenCipher tokenCipher,
+//                     TokenHashService tokenHashService) {
+//        this(user, type, token, expiredAt, ipAddress, userAgent, tokenCipher, tokenHashService, null);
+//    }
+
+    public AuthToken(User user,
+                     AuthTokenType type,
+                     String token,
+                     OffsetDateTime expiredAt,
+                     String ipAddress,
+                     String userAgent,
+                     TokenCipher tokenCipher,
+                     TokenHashService tokenHashService,
+                     byte[] aadHashOverride) {
         this.user = user;
-        EncryptedToken encryptedToken = getEncryptedToken(token, user.getId().toString(), tokenCipher, tokenHashService);
+        EncryptedToken encryptedToken = getEncryptedToken(
+                token,
+                user.getId(),
+                aadHashOverride,
+                tokenCipher,
+                tokenHashService
+        );
         this.type = type;
         this.token = encryptedToken.payload();
         this.expiredAt = expiredAt;
@@ -100,12 +125,18 @@ public class AuthToken {
         return new EncryptedToken(payload, context);
     }
 
-    private EncryptedToken getEncryptedToken(String token, String tag, TokenCipher tokenCipher, TokenHashService tokenHashService) {
+    private EncryptedToken getEncryptedToken(String token,
+                                             Long userId,
+                                             byte[] aadHashOverride,
+                                             TokenCipher tokenCipher,
+                                             TokenHashService tokenHashService) {
+        String tag = userId.toString();
+        byte[] aadHash = aadHashOverride != null ? aadHashOverride : getAadHash(tag, tokenHashService);
         return tokenCipher.encrypt(
                 token,
                 TokenCipherSpec.of(
                         getAad(tag),
-                        getAadHash(tag, tokenHashService)
+                        aadHash
                 )
         );
     }
