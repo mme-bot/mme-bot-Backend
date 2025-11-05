@@ -90,63 +90,17 @@ public class AuthToken {
     public AuthToken(User user,
                      AuthTokenType type,
                      String token,
+                     EncryptionContext context,
                      OffsetDateTime expiredAt,
                      String ipAddress,
-                     String userAgent,
-                     TokenCipher tokenCipher,
-                     TokenHashService tokenHashService,
-                     byte[] aadHashOverride) {
+                     String userAgent) {
         this.user = user;
-        EncryptedToken encryptedToken = getEncryptedToken(
-                token,
-                user.getId(),
-                aadHashOverride,
-                tokenCipher,
-                tokenHashService
-        );
         this.type = type;
-        this.token = encryptedToken.payload();
+        this.token = token;
         this.expiredAt = expiredAt;
         this.ipAddress = ipAddress;
-        this.encryptionContext = encryptedToken.context();
+        this.encryptionContext = context;
         this.userAgent = userAgent;
-    }
-
-    public String getDecodeToken(String tag, TokenCipher cipher, TokenHashService tokenHashService) {
-        return cipher.decrypt(asEncryptedToken(this.token, this.encryptionContext, type.name()), TokenCipherSpec.of(getAad(tag), getAadHash(tag, tokenHashService)));
-    }
-
-    private EncryptedToken asEncryptedToken(String payload,
-                                            EncryptionContext context,
-                                            String label) {
-        if (payload == null || context == null) {
-            throw new TokenCipherException("No encrypted " + label + " available");
-        }
-        return new EncryptedToken(payload, context);
-    }
-
-    private EncryptedToken getEncryptedToken(String token,
-                                             Long userId,
-                                             byte[] aadHashOverride,
-                                             TokenCipher tokenCipher,
-                                             TokenHashService tokenHashService) {
-        String tag = userId.toString();
-        byte[] aadHash = aadHashOverride != null ? aadHashOverride : getAadHash(tag, tokenHashService);
-        return tokenCipher.encrypt(
-                token,
-                TokenCipherSpec.of(
-                        getAad(tag),
-                        aadHash
-                )
-        );
-    }
-
-    private byte[] getAad(String tag) {
-        return tag.getBytes(StandardCharsets.UTF_8);
-    }
-
-    private byte[] getAadHash(String tag, TokenHashService tokenHashService) {
-        return tokenHashService.hash(tag);
     }
 
     public boolean isRevoked() {

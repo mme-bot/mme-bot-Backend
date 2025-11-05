@@ -12,6 +12,7 @@ import me.mmebot.auth.domain.AuthToken;
 import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.Role;
 import me.mmebot.auth.domain.RoleName;
+import me.mmebot.auth.domain.token.EncryptedToken;
 import me.mmebot.auth.domain.token.TokenCipher;
 import me.mmebot.auth.exception.AuthException;
 import me.mmebot.auth.jwt.JwtPayload;
@@ -23,6 +24,8 @@ import me.mmebot.auth.service.AuthServiceRecords.ClientMetadata;
 import me.mmebot.auth.service.AuthServiceRecords.SignInResult;
 import me.mmebot.auth.service.AuthServiceRecords.SignUpCommand;
 import me.mmebot.auth.service.AuthServiceRecords.TokenPair;
+import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.repository.EncryptionContextRepository;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.user.domain.User;
 import me.mmebot.user.repository.UserRepository;
@@ -43,8 +46,17 @@ public class AuthService {
     private final TokenHashService tokenHashService;
     private final EncryptionContextFactory encryptionContextFactory;
     private final EmailVerificationService emailVerificationService;
-    private final TokenCipher tokenCipher;
+    private final RedisService redisService;
+    private final TokenCiperService tokenCiperService;
+    private final EncryptionContextService encryptionContextService;
 
+    /**
+     * FIXME refresh token 재발급 또는 재로그인 등등을 할 경우 로그인 전에 refresh token 취소시켜야함
+     * @param email
+     * @param rawPassword
+     * @param metadata
+     * @return
+     */
     public SignInResult signIn(String email, String rawPassword, ClientMetadata metadata) {
         String normalizedEmail = normalizeEmail(email);
         log.info("Attempting sign-in for {}", normalizedEmail);
@@ -120,7 +132,7 @@ public class AuthService {
                     return AuthException.tokenNotFound();
                 });
 
-        String decodedToken = authToken.getDecodeToken(userId.toString(), tokenCipher, tokenHashService);
+        String decodedToken = tokenCiperService.getDecodeToken(authToken.getToken(), authToken.getEncryptionContext(), authToken.getType(), userId.toString());
         JwtPayload storedPayload = parseToken(decodedToken);
         if (!Objects.equals(storedPayload.userId(), userId)) {
             log.warn("Token reissue failed: refresh token user mismatch (expected {}, actual {})", userId,
@@ -132,8 +144,10 @@ public class AuthService {
             throw AuthException.invalidTokenType();
         }
 
-        byte[] userHash = hashUserTag(userId);
-
+        byte[] userHash = tokenHashService.hash(userId.toString());
+        /**
+         * FIXME 여기서 authToken 여러개 리턴하는 증상 있는데 해결해야함. -> hash 를 바꿀 것인가? 아님 expired at 이 유효한 걸 선택할 것인가..
+         */
         AuthToken storedToken = authTokenRepository.findByUserIdAndEncryptionContextAadHash(userId, userHash)
                 .orElseThrow(() -> {
                     log.warn("Token reissue failed: refresh token missing for user {}", userId);
@@ -169,23 +183,35 @@ public class AuthService {
         String accessToken = jwtTokenService.createAccessToken(user.getId(), effectiveRoles);
         String refreshToken = jwtTokenService.createRefreshToken(user.getId(), effectiveRoles);
         AuthToken authToken = storeRefreshToken(user, refreshToken, metadata);
+
+        // hash 할 거
+        EncryptedToken encryptAccessToken = tokenCiperService.getEncryptedToken(accessToken, user.getId(), null);
+        encryptionContextService.save(encryptAccessToken.context());
+        storeAccessTokenToRedis(user.getId(), encryptAccessToken.payload());
         log.debug("Issued tokens for user {} with roles {}", user.getId(), effectiveRoles);
         return new TokenPair(accessToken, authToken.getToken());
     }
 
+    private void storeAccessTokenToRedis(Long userId, String accessToken) {
+        String key = "jwt:" + userId;
+        redisService.enqueueRedis(key, accessToken, jwtTokenService.getAccessTokenExpiry());
+    }
+
     private AuthToken storeRefreshToken(User user, String refreshToken, ClientMetadata metadata) {
         JwtPayload payload = parseToken(refreshToken);
-        byte[] userHash = hashUserTag(user.getId());
+        EncryptedToken encryptedToken = tokenCiperService.getEncryptedToken(
+                refreshToken,
+                user.getId(),
+                null
+        );
         AuthToken authToken = new AuthToken(
                 user,
                 payload.tokenType(),
-                refreshToken,
+                encryptedToken.payload(),
+                encryptedToken.context(),
                 payload.expiresAt(),
                 metadata != null ? metadata.ipAddress() : null,
-                metadata != null ? metadata.userAgent() : null,
-                tokenCipher,
-                tokenHashService,
-                userHash
+                metadata != null ? metadata.userAgent() : null
         );
         authTokenRepository.save(authToken);
         log.debug("Stored refresh token metadata for user {}", user.getId());
@@ -200,14 +226,6 @@ public class AuthService {
             log.error("Token parsing failed", ex);
             throw AuthException.tokenProcessingFailed("Failed to process token", ex);
         }
-    }
-
-    private byte[] hashUserTag(Long userId) {
-        if (userId == null) {
-            log.error("Token processing failed: missing user identifier for hashing");
-            throw AuthException.tokenProcessingFailed("Refresh token identifier is missing", new IllegalStateException("userId"));
-        }
-        return tokenHashService.hash(String.valueOf(userId));
     }
 
     private String normalizeEmail(String email) {

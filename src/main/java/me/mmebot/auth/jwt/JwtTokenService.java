@@ -138,6 +138,10 @@ public class JwtTokenService {
         return encrypted;
     }
 
+    public Duration getAccessTokenExpiry() {
+        return properties.accessTokenExpiry();
+    }
+
     private void validate(JWTClaimsSet claims) {
         if (!Objects.equals(properties.issuer(), claims.getIssuer())) {
             log.warn("JWT validation failed: unexpected issuer {}", claims.getIssuer());
