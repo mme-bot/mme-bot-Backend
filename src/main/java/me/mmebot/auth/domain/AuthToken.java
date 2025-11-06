@@ -12,14 +12,8 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import me.mmebot.auth.domain.token.EncryptedToken;
-import me.mmebot.auth.domain.token.TokenCipher;
-import me.mmebot.auth.domain.token.TokenCipherException;
-import me.mmebot.auth.domain.token.TokenCipherSpec;
-import me.mmebot.auth.service.TokenHashService;
 import me.mmebot.common.persistence.DatabaseNames;
 
-import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
