@@ -14,7 +14,7 @@ public class RedisService {
     private final StringRedisTemplate stringRedisTemplate;
 
     public void enqueueRedis(String key, String value, Duration ttl) {
-        stringRedisTemplate.opsForValue().set(key, value);
+        stringRedisTemplate.opsForList().rightPush(key, value);
         if (ttl != null && !ttl.isZero() && !ttl.isNegative()) {
             boolean expirationApplied = Boolean.TRUE.equals(stringRedisTemplate.expire(key, ttl));
             if (!expirationApplied) {

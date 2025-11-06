@@ -3,6 +3,7 @@ package me.mmebot.auth.service;
 import jakarta.transaction.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -13,7 +14,6 @@ import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.Role;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.domain.token.EncryptedToken;
-import me.mmebot.auth.domain.token.TokenCipher;
 import me.mmebot.auth.exception.AuthException;
 import me.mmebot.auth.jwt.JwtPayload;
 import me.mmebot.auth.jwt.JwtProcessingException;
@@ -24,8 +24,6 @@ import me.mmebot.auth.service.AuthServiceRecords.ClientMetadata;
 import me.mmebot.auth.service.AuthServiceRecords.SignInResult;
 import me.mmebot.auth.service.AuthServiceRecords.SignUpCommand;
 import me.mmebot.auth.service.AuthServiceRecords.TokenPair;
-import me.mmebot.core.domain.EncryptionContext;
-import me.mmebot.core.repository.EncryptionContextRepository;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.user.domain.User;
 import me.mmebot.user.repository.UserRepository;
@@ -50,13 +48,6 @@ public class AuthService {
     private final TokenCiperService tokenCiperService;
     private final EncryptionContextService encryptionContextService;
 
-    /**
-     * FIXME refresh token 재발급 또는 재로그인 등등을 할 경우 로그인 전에 refresh token 취소시켜야함
-     * @param email
-     * @param rawPassword
-     * @param metadata
-     * @return
-     */
     public SignInResult signIn(String email, String rawPassword, ClientMetadata metadata) {
         String normalizedEmail = normalizeEmail(email);
         log.info("Attempting sign-in for {}", normalizedEmail);
@@ -85,12 +76,11 @@ public class AuthService {
         return new SignInResult(user.getId(), botId, user.getNickname(), tokens.accessToken(), tokens.refreshToken());
     }
 
-    @Transactional
     public void signUp(SignUpCommand command) {
         String normalizedEmail = normalizeEmail(command.email());
         log.info("Attempting sign-up for {}", normalizedEmail);
         userRepository.findByEmail(normalizedEmail)
-                .ifPresent(existing -> {
+                .ifPresent(_ -> {
                     log.warn("Sign-up failed: {} already in use", normalizedEmail);
                     throw AuthException.duplicateEmail();
                 });
@@ -126,17 +116,39 @@ public class AuthService {
             throw AuthException.deletedAccount();
         }
 
+        byte[] userHash = tokenHashService.hash(userId.toString());
         AuthToken authToken = authTokenRepository.findByUserIdAndToken(userId, refreshToken)
                 .orElseThrow(() -> {
                     log.warn("Token reissue failed: user's {} token not found", userId);
                     return AuthException.tokenNotFound();
                 });
 
+        // 토큰 타입이 refresh 타입이 아님
+        if (!authToken.getType().equals(AuthTokenType.REFRESH)) {
+            log.warn("Token reissue failed: token {} is not refresh token", authToken.getId());
+            throw AuthException.refreshTokenMissing();
+        }
+
+        // 시간 지남
+        OffsetDateTime now = OffsetDateTime.now();
+        if (authToken.isRevoked() || authToken.isExpired(now)) {
+            log.warn("Token reissue failed: refresh token invalid for user {}", userId);
+            throw AuthException.refreshTokenInvalid();
+        }
+
+        // hash 다륾
+        if (!Arrays.equals(userHash, authToken.getEncryptionContext().getAadHash())) {
+            log.warn("Token reissue failed: user's {} token hash mismatch", userId);
+            authToken.revoke(now);
+            throw AuthException.refreshTokenInvalid();
+        }
+
         String decodedToken = tokenCiperService.getDecodeToken(authToken.getToken(), authToken.getEncryptionContext(), authToken.getType(), userId.toString());
         JwtPayload storedPayload = parseToken(decodedToken);
         if (!Objects.equals(storedPayload.userId(), userId)) {
             log.warn("Token reissue failed: refresh token user mismatch (expected {}, actual {})", userId,
                     storedPayload.userId());
+            authToken.revoke(now);
             throw AuthException.refreshTokenUserMismatch();
         }
         if (storedPayload.tokenType() != AuthTokenType.REFRESH) {
@@ -144,25 +156,9 @@ public class AuthService {
             throw AuthException.invalidTokenType();
         }
 
-        byte[] userHash = tokenHashService.hash(userId.toString());
         /**
-         * FIXME 여기서 authToken 여러개 리턴하는 증상 있는데 해결해야함. -> hash 를 바꿀 것인가? 아님 expired at 이 유효한 걸 선택할 것인가..
+         * 인증 완료 되었으므로 새 토큰 만들기
          */
-        AuthToken storedToken = authTokenRepository.findByUserIdAndEncryptionContextAadHash(userId, userHash)
-                .orElseThrow(() -> {
-                    log.warn("Token reissue failed: refresh token missing for user {}", userId);
-                    return AuthException.refreshTokenMissing();
-                });
-
-        OffsetDateTime now = OffsetDateTime.now();
-        if (storedToken.isRevoked() || storedToken.isExpired(now)) {
-            log.warn("Token reissue failed: refresh token invalid for user {}", userId);
-            throw AuthException.refreshTokenInvalid();
-        }
-
-        storedToken.revoke(now);
-        authTokenRepository.save(storedToken);
-
         List<RoleName> roles = roleRepository.findByUserId(userId).stream()
                 .map(Role::getRoleName)
                 .toList();
@@ -177,19 +173,22 @@ public class AuthService {
                 ? List.of(RoleName.ROLE_USER)
                 : roleNames;
 
-        /**
-         * TODO Access token 암호화 후, Redis 에 저장하는 로직 추가 필요
-         */
         String accessToken = jwtTokenService.createAccessToken(user.getId(), effectiveRoles);
         String refreshToken = jwtTokenService.createRefreshToken(user.getId(), effectiveRoles);
         AuthToken authToken = storeRefreshToken(user, refreshToken, metadata);
 
-        // hash 할 거
-        EncryptedToken encryptAccessToken = tokenCiperService.getEncryptedToken(accessToken, user.getId(), null);
-        encryptionContextService.save(encryptAccessToken.context());
+        // 암호화 후 redis 저장
+        EncryptedToken encryptAccessToken = getEncryptAccessToken(user, accessToken);
         storeAccessTokenToRedis(user.getId(), encryptAccessToken.payload());
+
         log.debug("Issued tokens for user {} with roles {}", user.getId(), effectiveRoles);
         return new TokenPair(accessToken, authToken.getToken());
+    }
+
+    private EncryptedToken getEncryptAccessToken(User user, String accessToken) {
+        EncryptedToken encryptAccessToken = tokenCiperService.getEncryptedToken(accessToken, user.getId(), null);
+        encryptionContextService.save(encryptAccessToken.context());
+        return encryptAccessToken;
     }
 
     private void storeAccessTokenToRedis(Long userId, String accessToken) {
