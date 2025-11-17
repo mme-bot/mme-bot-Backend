@@ -272,3 +272,6 @@ CREATE TABLE mmebot.provider_tokens (
 
                                         CONSTRAINT uq_provider_client UNIQUE (provider, client_id)
 );
+
+alter table mmebot.provider_tokens
+    owner to holiday;
