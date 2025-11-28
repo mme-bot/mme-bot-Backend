@@ -44,6 +44,8 @@ dependencies {
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.39.1'
     // redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    // open-korean-text
+    implementation 'org.openkoreantext:open-korean-text:2.3.1'
 
     compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
