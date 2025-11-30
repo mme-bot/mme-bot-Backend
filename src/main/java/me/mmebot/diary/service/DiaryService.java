@@ -38,6 +38,7 @@ public class DiaryService {
 
         String summaryShort = openAiService.diarySummarizeShort(request.content());
 
+        // FIXME content summaryShort 다 암호화해야함
         byte[] userIdBytes = user.getId().toString().getBytes(StandardCharsets.UTF_8);
         Diary diary = Diary.builder()
                 .user(user)
