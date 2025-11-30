@@ -1,0 +1,118 @@
+package me.mmebot.diary.service;
+
+import static me.mmebot.diary.service.DiaryServiceRecords.*;
+
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import me.mmebot.user.service.UserService;
+import me.mmebot.core.service.EncryptionContextFactory;
+import me.mmebot.diary.api.dto.CreateDiaryRequest;
+import me.mmebot.diary.api.dto.UpdateDiaryRequest;
+import me.mmebot.diary.domain.Diary;
+import me.mmebot.diary.exception.DiaryException;
+import me.mmebot.diary.repository.DiaryRepository;
+import me.mmebot.openai.service.OpenAiService;
+import me.mmebot.user.domain.User;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Slf4j
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class DiaryService {
+
+    private final DiaryRepository diaryRepository;
+    private final UserService userService;
+    private final EncryptionContextFactory encryptionContextFactory;
+    private final OpenAiService openAiService;
+
+    public DiaryDetail createDiary(CreateDiaryRequest request) {
+        log.info("Creating diary for user {} on {}", request.userId(), request.date());
+        User user = userService.getActiveUser(request.userId());
+        ensureUniqueDiaryDate(user.getId(), request.date(), null);
+
+        String summaryShort = openAiService.diarySummarizeShort(request.content());
+
+        byte[] userIdBytes = user.getId().toString().getBytes(StandardCharsets.UTF_8);
+        Diary diary = Diary.builder()
+                .user(user)
+                .content(request.content().strip())
+                .emotion(request.emotion())
+                .summaryShort(summaryShort)
+                .date(request.date())
+                .encryptionContext(encryptionContextFactory.createContext(userIdBytes))
+                .build();
+
+        Diary saved = diaryRepository.save(diary);
+        log.info("Diary {} created for user {} on {}", saved.getId(), saved.getUser().getId(), saved.getDate());
+        return toDetail(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public DiaryDetail getDiary(Long diaryId) {
+        log.debug("Fetching diary {}", diaryId);
+        return toDetail(getActiveDiary(diaryId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<DiaryDetail> getDiariesByUser(Long userId) {
+        log.debug("Fetching diaries for user {}", userId);
+        User user = userService.getActiveUser(userId);
+        List<DiaryDetail> details = diaryRepository.findByUserIdAndDeletedAtIsNullOrderByDateDesc(user.getId()).stream()
+                .map(DiaryService::toDetail)
+                .toList();
+        log.debug("Fetched {} diaries for user {}", details.size(), userId);
+        return details;
+    }
+
+    public DiaryDetail updateDiary(Long diaryId, UpdateDiaryRequest request) {
+        log.info("Updating diary {} for date {}", diaryId, request.date());
+        Diary diary = getActiveDiary(diaryId);
+        ensureUniqueDiaryDate(diary.getUser().getId(), request.date(), diaryId);
+
+        String summaryShort = openAiService.diarySummarizeShort(request.content());
+        diary.update(request.content().strip(), request.emotion(), summaryShort, request.date());
+        log.info("Diary {} updated", diaryId);
+        return toDetail(diary);
+    }
+
+    public void deleteDiary(Long diaryId) {
+        log.info("Deleting diary {}", diaryId);
+        Diary diary = getActiveDiary(diaryId);
+        diary.markDeleted(OffsetDateTime.now());
+        log.info("Diary {} marked as deleted", diaryId);
+    }
+
+    private Diary getActiveDiary(Long diaryId) {
+        return diaryRepository.findByIdAndDeletedAtIsNull(diaryId)
+                .orElseThrow(() -> {
+                    log.warn("Diary {} not found or deleted", diaryId);
+                    return DiaryException.diaryNotFound(diaryId);
+                });
+    }
+
+    private void ensureUniqueDiaryDate(Long userId, LocalDate date, Long currentDiaryId) {
+        diaryRepository.findByUserIdAndDateAndDeletedAtIsNull(userId, date)
+                .filter(existing -> currentDiaryId == null || !existing.getId().equals(currentDiaryId))
+                .ifPresent(existing -> {
+                    log.warn("Diary {} already exists for user {} on {}", existing.getId(), userId, date);
+                    throw DiaryException.diaryAlreadyExists(date);
+                });
+    }
+
+    private static DiaryDetail toDetail(Diary diary) {
+        return new DiaryDetail(
+                diary.getId(),
+                diary.getContent(),
+                diary.getEmotion(),
+                diary.getDate(),
+                diary.getCreatedAt(),
+                diary.getUpdatedAt()
+        );
+    }
+}

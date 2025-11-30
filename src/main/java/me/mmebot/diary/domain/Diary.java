@@ -68,4 +68,19 @@ public class Diary {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "encryption_context_id", nullable = false)
     private EncryptionContext encryptionContext;
+
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
+    public void update(String content, String emotion, String summaryShort, LocalDate date) {
+        this.content = content;
+        this.emotion = emotion;
+        this.summaryShort = summaryShort;
+        this.date = date;
+    }
+
+    public void markDeleted(OffsetDateTime deletedAt) {
+        this.deletedAt = deletedAt;
+    }
 }
