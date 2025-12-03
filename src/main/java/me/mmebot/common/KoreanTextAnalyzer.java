@@ -2,7 +2,7 @@ package me.mmebot.common;
 
 import org.openkoreantext.processor.KoreanTokenJava;
 import org.openkoreantext.processor.OpenKoreanTextProcessorJava;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import scala.collection.Seq;
 
 import java.util.List;
@@ -10,7 +10,7 @@ import java.util.Set;
 
 import static org.openkoreantext.processor.tokenizer.KoreanTokenizer.*;
 
-@Service
+@Component
 public class KoreanTextAnalyzer {
 
     // TODO: 나중에 DB 로 관리해야할 것 같지만 일단 빠른 개발을 위해 1차로는 코드에 명시하도록 함.

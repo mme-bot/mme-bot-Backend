@@ -1,7 +1,6 @@
 package me.mmebot.openai.service;
 
 import com.openai.client.OpenAIClient;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
@@ -21,11 +20,14 @@ public class OpenAiService {
         List<String> keywords = analyzer.extractKeywords(content);
 
         String prompt = """
-                다음은 한국어 일기를 형태소 분석한 결과입니다. 핵심 키워드를 10개 이내로 요약하세요.
-                분석 결과는 단어를 나열하고 사이에 쉼표를 붙입니다.
-                [형태소 분석 키워드]
-                %s
-                """.formatted(keywords);
+    아래는 한국어 일기의 형태소 분석 결과입니다.
+    입력된 키워드를 기반으로 가장 핵심적인 의미를 추출해
+    최대 15개의 주요 키워드를 명사 중심으로 요약하세요.
+    - 결과는 쉼표(,)로만 구분된 단일 라인으로 출력
+
+    [형태소 분석 결과]
+    %s
+    """.formatted(keywords);
 
         System.out.println(prompt);
         return summarize(prompt);
@@ -33,7 +35,7 @@ public class OpenAiService {
 
     private String summarize(String prompt) {
         ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
-                .model(ChatModel.GPT_4O_MINI) // 가성비 굿
+                .model(ChatModel.GPT_4_1_NANO) // 가성비 굿
                 .addUserMessage(prompt)
                 .build();
 
