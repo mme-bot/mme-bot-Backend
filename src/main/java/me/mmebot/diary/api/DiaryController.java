@@ -41,22 +41,22 @@ public class DiaryController {
         return DiaryResponse.from(diaryService.getDiary(diaryId));
     }
 
-    @GetMapping
-    public List<DiaryResponse> getDiaries(@RequestParam("userId") @NotNull Long userId) {
-        return diaryService.getDiariesByUser(userId).stream()
-                .map(DiaryResponse::from)
-                .toList();
-    }
-
-    @PutMapping("/{diaryId}")
-    public DiaryResponse updateDiary(@PathVariable Long diaryId,
-                                     @Valid @RequestBody UpdateDiaryRequest request) {
-        return DiaryResponse.from(diaryService.updateDiary(diaryId, request));
-    }
-
-    @DeleteMapping("/{diaryId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteDiary(@PathVariable Long diaryId) {
-        diaryService.deleteDiary(diaryId);
-    }
+//    @GetMapping
+//    public List<DiaryResponse> getDiaries(@RequestParam("userId") @NotNull Long userId) {
+//        return diaryService.getDiariesByUser(userId).stream()
+//                .map(DiaryResponse::from)
+//                .toList();
+//    }
+//
+//    @PutMapping("/{diaryId}")
+//    public DiaryResponse updateDiary(@PathVariable Long diaryId,
+//                                     @Valid @RequestBody UpdateDiaryRequest request) {
+//        return DiaryResponse.from(diaryService.updateDiary(diaryId, request));
+//    }
+//
+//    @DeleteMapping("/{diaryId}")
+//    @ResponseStatus(HttpStatus.NO_CONTENT)
+//    public void deleteDiary(@PathVariable Long diaryId) {
+//        diaryService.deleteDiary(diaryId);
+//    }
 }

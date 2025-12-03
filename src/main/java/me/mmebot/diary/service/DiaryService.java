@@ -8,6 +8,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.mmebot.common.crypto.AesGcmCryptoService;
 import me.mmebot.user.service.UserService;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.diary.api.dto.CreateDiaryRequest;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DiaryService {
 
+    private final AesGcmCryptoService aesGcmCryptoService;
     private final DiaryRepository diaryRepository;
     private final UserService userService;
     private final EncryptionContextFactory encryptionContextFactory;
@@ -37,16 +39,21 @@ public class DiaryService {
         ensureUniqueDiaryDate(user.getId(), request.date(), null);
 
         String summaryShort = openAiService.diarySummarizeShort(request.content());
+        System.out.println(summaryShort);
 
         // FIXME content summaryShort 다 암호화해야함
-        byte[] userIdBytes = user.getId().toString().getBytes(StandardCharsets.UTF_8);
+        String aadStr = user.getId().toString();
+        byte[] aad = aesGcmCryptoService.toAadBytes(aadStr);
+        String summaryShortEnc = aesGcmCryptoService.encryptWithAad(summaryShort, aad);
+        String contentEnc = aesGcmCryptoService.encryptWithAad(request.content(), aad);
+
         Diary diary = Diary.builder()
                 .user(user)
-                .content(request.content().strip())
+                .content(contentEnc)
                 .emotion(request.emotion())
-                .summaryShort(summaryShort)
+                .summaryShort(summaryShortEnc)
                 .date(request.date())
-                .encryptionContext(encryptionContextFactory.createContext(userIdBytes))
+                .encryptionContext(encryptionContextFactory.createContext(aad))
                 .build();
 
         Diary saved = diaryRepository.save(diary);
@@ -60,34 +67,34 @@ public class DiaryService {
         return toDetail(getActiveDiary(diaryId));
     }
 
-    @Transactional(readOnly = true)
-    public List<DiaryDetail> getDiariesByUser(Long userId) {
-        log.debug("Fetching diaries for user {}", userId);
-        User user = userService.getActiveUser(userId);
-        List<DiaryDetail> details = diaryRepository.findByUserIdAndDeletedAtIsNullOrderByDateDesc(user.getId()).stream()
-                .map(DiaryService::toDetail)
-                .toList();
-        log.debug("Fetched {} diaries for user {}", details.size(), userId);
-        return details;
-    }
-
-    public DiaryDetail updateDiary(Long diaryId, UpdateDiaryRequest request) {
-        log.info("Updating diary {} for date {}", diaryId, request.date());
-        Diary diary = getActiveDiary(diaryId);
-        ensureUniqueDiaryDate(diary.getUser().getId(), request.date(), diaryId);
-
-        String summaryShort = openAiService.diarySummarizeShort(request.content());
-        diary.update(request.content().strip(), request.emotion(), summaryShort, request.date());
-        log.info("Diary {} updated", diaryId);
-        return toDetail(diary);
-    }
-
-    public void deleteDiary(Long diaryId) {
-        log.info("Deleting diary {}", diaryId);
-        Diary diary = getActiveDiary(diaryId);
-        diary.markDeleted(OffsetDateTime.now());
-        log.info("Diary {} marked as deleted", diaryId);
-    }
+//    @Transactional(readOnly = true)
+//    public List<DiaryDetail> getDiariesByUser(Long userId) {
+//        log.debug("Fetching diaries for user {}", userId);
+//        User user = userService.getActiveUser(userId);
+//        List<DiaryDetail> details = diaryRepository.findByUserIdAndDeletedAtIsNullOrderByDateDesc(user.getId()).stream()
+//                .map(DiaryService::toDetail)
+//                .toList();
+//        log.debug("Fetched {} diaries for user {}", details.size(), userId);
+//        return details;
+//    }
+//
+//    public DiaryDetail updateDiary(Long diaryId, UpdateDiaryRequest request) {
+//        log.info("Updating diary {} for date {}", diaryId, request.date());
+//        Diary diary = getActiveDiary(diaryId);
+//        ensureUniqueDiaryDate(diary.getUser().getId(), request.date(), diaryId);
+//
+//        String summaryShort = openAiService.diarySummarizeShort(request.content());
+//        diary.update(request.content().strip(), request.emotion(), summaryShort, request.date());
+//        log.info("Diary {} updated", diaryId);
+//        return toDetail(diary);
+//    }
+//
+//    public void deleteDiary(Long diaryId) {
+//        log.info("Deleting diary {}", diaryId);
+//        Diary diary = getActiveDiary(diaryId);
+//        diary.markDeleted(OffsetDateTime.now());
+//        log.info("Diary {} marked as deleted", diaryId);
+//    }
 
     private Diary getActiveDiary(Long diaryId) {
         return diaryRepository.findByIdAndDeletedAtIsNull(diaryId)
@@ -106,10 +113,12 @@ public class DiaryService {
                 });
     }
 
-    private static DiaryDetail toDetail(Diary diary) {
+    private DiaryDetail toDetail(Diary diary) {
+        byte[] aadHash = diary.getEncryptionContext().getAadHash();
+        String content = aesGcmCryptoService.decryptWithAad(diary.getContent(), aadHash);
         return new DiaryDetail(
                 diary.getId(),
-                diary.getContent(),
+                content,
                 diary.getEmotion(),
                 diary.getDate(),
                 diary.getCreatedAt(),
