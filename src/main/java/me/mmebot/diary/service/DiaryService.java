@@ -1,18 +1,16 @@
 package me.mmebot.diary.service;
 
-import static me.mmebot.diary.service.DiaryServiceRecords.*;
+import static me.mmebot.diary.api.dto.DiaryResponse.*;
 
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.common.crypto.AesGcmCryptoService;
+import me.mmebot.diary.api.dto.DiaryResponse;
 import me.mmebot.user.service.UserService;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.diary.api.dto.CreateDiaryRequest;
-import me.mmebot.diary.api.dto.UpdateDiaryRequest;
 import me.mmebot.diary.domain.Diary;
 import me.mmebot.diary.exception.DiaryException;
 import me.mmebot.diary.repository.DiaryRepository;
@@ -33,7 +31,7 @@ public class DiaryService {
     private final EncryptionContextFactory encryptionContextFactory;
     private final OpenAiService openAiService;
 
-    public DiaryDetail createDiary(CreateDiaryRequest request) {
+    public CreateDiaryRes createDiary(CreateDiaryRequest request) {
         log.info("Creating diary for user {} on {}", request.userId(), request.date());
         User user = userService.getActiveUser(request.userId());
         ensureUniqueDiaryDate(user.getId(), request.date(), null);
@@ -41,7 +39,6 @@ public class DiaryService {
         String summaryShort = openAiService.diarySummarizeShort(request.content());
         System.out.println(summaryShort);
 
-        // FIXME content summaryShort 다 암호화해야함
         String aadStr = user.getId().toString();
         byte[] aad = aesGcmCryptoService.toAadBytes(aadStr);
         String summaryShortEnc = aesGcmCryptoService.encryptWithAad(summaryShort, aad);
@@ -58,7 +55,7 @@ public class DiaryService {
 
         Diary saved = diaryRepository.save(diary);
         log.info("Diary {} created for user {} on {}", saved.getId(), saved.getUser().getId(), saved.getDate());
-        return toDetail(saved);
+        return new CreateDiaryRes(diary.getId());
     }
 
     @Transactional(readOnly = true)
