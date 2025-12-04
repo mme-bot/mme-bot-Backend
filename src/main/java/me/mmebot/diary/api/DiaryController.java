@@ -1,6 +1,7 @@
 package me.mmebot.diary.api;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import me.mmebot.diary.api.dto.CreateDiaryRequest;
 import me.mmebot.diary.service.DiaryService;
 import org.springframework.validation.annotation.Validated;
@@ -16,14 +17,11 @@ import static me.mmebot.diary.api.dto.DiaryResponse.DiaryDetail;
 
 @RestController
 @Validated
+@RequiredArgsConstructor
 @RequestMapping("${api.base-path}/diaries")
 public class DiaryController {
 
     private final DiaryService diaryService;
-
-    public DiaryController(DiaryService diaryService) {
-        this.diaryService = diaryService;
-    }
 
     @PostMapping
     public CreateDiaryRes createDiary(@Valid @RequestBody CreateDiaryRequest request) {
