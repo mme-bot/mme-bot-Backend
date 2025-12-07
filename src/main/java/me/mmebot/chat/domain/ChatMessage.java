@@ -40,7 +40,7 @@ public class ChatMessage {
     private ChatSession chatSession;
 
     @Column(nullable = false)
-    private int seq;
+    private Integer seq;
 
     @Column(nullable = false, length = 16)
     private String role;
