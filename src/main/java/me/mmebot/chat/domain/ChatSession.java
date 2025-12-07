@@ -47,11 +47,12 @@ public class ChatSession {
     private Bot bot;
 
     @Column(nullable = false, length = 32)
-    private String status;
+    private ChatSessionStatus status;
 
     @Column(name = "send_count", nullable = false)
     private int sendCount;
 
+    // 대화 끝난 후, 대화 요약
     @Column(columnDefinition = "TEXT")
     private String summary;
 

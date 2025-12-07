@@ -93,7 +93,7 @@ public class DiaryService {
 //        log.info("Diary {} marked as deleted", diaryId);
 //    }
 
-    private Diary getActiveDiary(Long diaryId) {
+    public Diary getActiveDiary(Long diaryId) {
         return diaryRepository.findByIdAndDeletedAtIsNull(diaryId)
                 .orElseThrow(() -> {
                     log.warn("Diary {} not found or deleted", diaryId);
