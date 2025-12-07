@@ -33,4 +33,15 @@ public class ChatException extends ApiException {
                 "chat.diary.invalid_date"
         );
     }
+
+    public static ChatException chatSessionAlreadyExists(Long diaryId, Long chatSessionId) {
+        return new ChatException(
+                HttpStatus.CONFLICT,
+                "Chat session %d already exists for diary %d".formatted(
+                        chatSessionId,
+                        diaryId
+                ),
+                "chat.session.already_exists"
+        );
+    }
 }

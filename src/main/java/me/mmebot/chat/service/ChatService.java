@@ -6,6 +6,7 @@ import me.mmebot.chat.api.dto.ChatRes.CreateChatSessionRes;
 import me.mmebot.chat.domain.ChatSession;
 import me.mmebot.chat.domain.ChatSessionStatus;
 import me.mmebot.chat.exception.ChatException;
+import me.mmebot.chat.repository.ChatSessionRepository;
 import me.mmebot.diary.domain.Diary;
 import me.mmebot.diary.service.DiaryService;
 import me.mmebot.user.domain.User;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 import static me.mmebot.chat.api.dto.ChatReq.*;
 
@@ -22,6 +24,7 @@ import static me.mmebot.chat.api.dto.ChatReq.*;
 @RequiredArgsConstructor
 public class ChatService {
 
+    private final ChatSessionRepository chatSessionRepository;
     private final DiaryService diaryService;
 
     public CreateChatSessionRes createChatSession(CreateChatSessionReq req) {
@@ -44,14 +47,27 @@ public class ChatService {
             throw ChatException.diaryNotFromToday(diary.getId(), diary.getDate(), today);
         }
 
+        Optional<ChatSession> existingSession = getChatSessionByDiaryId(diary.getId());
+        if (existingSession.isPresent()) {
+            ChatSession session = existingSession.get();
+            log.warn("Chat session {} already exists for diary {}", session.getId(), diary.getId());
+            throw ChatException.chatSessionAlreadyExists(diary.getId(), session.getId());
+        }
+
         ChatSession chatSession = ChatSession.builder()
                 .diary(diary)
                 .bot(user.getBot())
                 .status(ChatSessionStatus.ACTIVE)
                 .build();
 
+        chatSessionRepository.save(chatSession);
+
         log.info("Chat session initialized for diary {} by user {}", diary.getId(), user.getId());
         return new CreateChatSessionRes(chatSession.getId());
+    }
+
+    private Optional<ChatSession> getChatSessionByDiaryId(Long diaryId) {
+        return chatSessionRepository.findByDiaryId(diaryId);
     }
 
     /**
