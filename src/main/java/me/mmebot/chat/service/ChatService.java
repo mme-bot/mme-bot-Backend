@@ -2,7 +2,6 @@ package me.mmebot.chat.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import me.mmebot.chat.api.dto.ChatRes.CreateChatSessionRes;
 import me.mmebot.chat.domain.ChatSession;
 import me.mmebot.chat.domain.ChatSessionStatus;
 import me.mmebot.chat.exception.ChatException;
@@ -16,7 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.Optional;
 
-import static me.mmebot.chat.api.dto.ChatReq.*;
+import static me.mmebot.chat.api.dto.ChatSessionReq.*;
+import static me.mmebot.chat.api.dto.ChatSessionRes.*;
 
 @Slf4j
 @Service

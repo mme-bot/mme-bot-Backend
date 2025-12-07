@@ -2,7 +2,7 @@ package me.mmebot.chat.api.dto;
 
 import jakarta.validation.constraints.NotNull;
 
-public final class ChatReq {
+public final class ChatSessionReq {
     public record CreateChatSessionReq(
             @NotNull
             Long userId,
