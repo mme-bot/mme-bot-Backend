@@ -44,4 +44,20 @@ public class ChatException extends ApiException {
                 "chat.session.already_exists"
         );
     }
+
+    public static ChatException chatSessionNotFound(Long chatSessionId) {
+        return new ChatException(
+                HttpStatus.NOT_FOUND,
+                "Chat session %d not found".formatted(chatSessionId),
+                "chat.session.not_found"
+        );
+    }
+
+    public static ChatException chatSessionHasNoMessages(Long chatSessionId) {
+        return new ChatException(
+                HttpStatus.BAD_REQUEST,
+                "Chat session %d does not contain any messages".formatted(chatSessionId),
+                "chat.session.no_messages"
+        );
+    }
 }

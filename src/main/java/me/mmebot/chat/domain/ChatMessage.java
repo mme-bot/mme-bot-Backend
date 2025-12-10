@@ -48,4 +48,13 @@ public class ChatMessage {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
+
+    public ChatMessage(ChatSession chatSession, Integer seq, ChatMessageRole role, String content, EncryptionContext encryptionContext) {
+        this.chatSession = chatSession;
+        this.seq = seq;
+        this.role = role;
+        this.content = content;
+        this.createdAt = OffsetDateTime.now();
+        this.encryptionContext = encryptionContext;
+    }
 }

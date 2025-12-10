@@ -2,14 +2,10 @@ package me.mmebot.chat.api;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import me.mmebot.chat.api.dto.ChatSessionReq;
-import me.mmebot.chat.api.dto.ChatSessionRes;
-import me.mmebot.chat.domain.ChatMessage;
+import me.mmebot.chat.api.dto.ChatMessageReq.CreateChatMessageReq;
+import me.mmebot.chat.api.dto.ChatMessageRes.CreateChatMessageRes;
 import me.mmebot.chat.service.ChatService;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import static me.mmebot.chat.api.dto.ChatSessionReq.*;
 import static me.mmebot.chat.api.dto.ChatSessionRes.*;
@@ -27,7 +23,7 @@ public class ChatController {
     }
 
     @PostMapping("/{chatSessionId}/messages")
-    public void sendAndStreamMessage(@RequestBody @Valid ChatMessage chatMessage) {
-
+    public CreateChatMessageRes sendAndStreamMessage(@RequestBody @Valid CreateChatMessageReq req, @PathVariable("chatSessionId") Long chatSessionId) {
+        return chatService.createChatMessage(chatSessionId, req);
     }
 }

@@ -7,14 +7,13 @@ import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.common.crypto.AesGcmCryptoService;
-import me.mmebot.diary.api.dto.DiaryResponse;
 import me.mmebot.user.service.UserService;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.diary.api.dto.CreateDiaryRequest;
 import me.mmebot.diary.domain.Diary;
 import me.mmebot.diary.exception.DiaryException;
 import me.mmebot.diary.repository.DiaryRepository;
-import me.mmebot.openai.service.OpenAiService;
+import me.mmebot.openai.service.OpenAIService;
 import me.mmebot.user.domain.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +28,7 @@ public class DiaryService {
     private final DiaryRepository diaryRepository;
     private final UserService userService;
     private final EncryptionContextFactory encryptionContextFactory;
-    private final OpenAiService openAiService;
+    private final OpenAIService openAiService;
 
     public CreateDiaryRes createDiary(CreateDiaryRequest request) {
         log.info("Creating diary for user {} on {}", request.userId(), request.date());
