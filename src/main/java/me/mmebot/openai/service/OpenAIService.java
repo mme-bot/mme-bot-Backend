@@ -7,7 +7,6 @@ import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import me.mmebot.chat.domain.ChatMessage;
 import me.mmebot.common.KoreanTextAnalyzer;
 import me.mmebot.openai.dto.OpenAIChatMessage;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OpenAIService {
@@ -49,10 +47,9 @@ public class OpenAIService {
 
         ChatCompletion completion = openAIClient.chat().completions().create(params);
 
-        return completion.choices().getFirst().message().content().orElseThrow(() -> {
-            log.error("OpenAI completion missing content. Prompt: {}, completion: {}", prompt, completion);
-            return OpenAIException.missingCompletionContent();
-        });
+        return completion.choices().getFirst().message().content().orElseThrow(() ->
+                OpenAIException.missingCompletionContent(prompt, completion)
+        );
     }
 
     public String sendChatMessage(
@@ -118,7 +115,6 @@ public class OpenAIService {
         try {
             return mapper.writeValueAsString(object);
         } catch (JsonProcessingException e) {
-            log.error("Failed to serialize object for OpenAI request payload", e);
             throw OpenAIException.failedToSerialize(object, e);
         }
     }

@@ -9,10 +9,15 @@ public class OpenAIException extends ApiException {
         super(status, message, errorCode, cause);
     }
 
-    public static OpenAIException missingCompletionContent() {
+    public static OpenAIException missingCompletionContent(String prompt, Object completion) {
+        String promptSnippet = prompt == null ? "null" : abbreviate(prompt);
+        String completionSnapshot = completion == null ? "null" : abbreviate(completion.toString());
         return new OpenAIException(
                 HttpStatus.INTERNAL_SERVER_ERROR,
-                "OpenAI completion returned without any content",
+                "OpenAI completion returned without any content (promptSnippet=%s, completion=%s)".formatted(
+                        promptSnippet,
+                        completionSnapshot
+                ),
                 "openai.chat.empty_content",
                 null
         );
@@ -26,5 +31,12 @@ public class OpenAIException extends ApiException {
                 "openai.serialization_failed",
                 cause
         );
+    }
+
+    private static String abbreviate(String value) {
+        if (value.length() <= 200) {
+            return value;
+        }
+        return value.substring(0, 200) + "...";
     }
 }
