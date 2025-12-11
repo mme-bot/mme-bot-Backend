@@ -142,8 +142,8 @@ public class EmailVerificationService {
     private void sendVerificationEmail(String recipientEmail, String code) {
         String template = resolveTemplate();
         String body = template.replace("{{code}}", code);
-        MailMessage message = MailMessage.html(recipientEmail, EMAIL_SUBJECT, body);
-        mailSender.send(message);
+        MailMessage msg = MailMessage.html(recipientEmail, EMAIL_SUBJECT, body);
+        mailSender.send(msg);
     }
 
     private String resolveTemplate() {

@@ -54,14 +54,14 @@ public class OpenAIService {
 
     public String sendChatMessage(
 //            String botScript,
-                                  String diarySummaryShort, List<ChatMessage> chatMessageList, String reqMessage) {
-        List<OpenAIChatMessage> messageList = chatMessageList.stream().map(message ->
+                                  String diarySummaryShort, List<ChatMessage> chatMsgList, String reqMsg) {
+        List<OpenAIChatMessage> msgList = chatMsgList.stream().map(chatMsg ->
                 new OpenAIChatMessage(
-                        message.getRole(),
-                        message.getContent()
+                        chatMsg.getRole(),
+                        chatMsg.getContent()
                 )).toList();
 
-//        String messageStr = objToJson(messageList);
+//        String msgStr = objToJson(msgList);
 
         String prompt = """
                 [페르소나 규칙]
@@ -103,9 +103,9 @@ public class OpenAIService {
                 위 내용을 기반으로 사용자의 마지막 메시지에 응답하라.
                 """.formatted(
 //                botScript,
-                messageList,
+                msgList,
                 diarySummaryShort,
-                reqMessage
+                reqMsg
         );
 
         return summarize(prompt);

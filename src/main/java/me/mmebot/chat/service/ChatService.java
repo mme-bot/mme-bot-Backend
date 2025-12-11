@@ -1,7 +1,7 @@
 package me.mmebot.chat.service;
 
 import lombok.RequiredArgsConstructor;
-import me.mmebot.chat.api.dto.ChatMessageRes.CreateChatMessageRes;
+import me.mmebot.chat.api.dto.ChatMsgRes.CreateChatMsgRes;
 import me.mmebot.chat.domain.ChatMessage;
 import me.mmebot.chat.domain.ChatSession;
 import me.mmebot.chat.domain.ChatSessionStatus;
@@ -9,7 +9,6 @@ import me.mmebot.chat.exception.ChatException;
 import me.mmebot.chat.repository.ChatMessageRepository;
 import me.mmebot.chat.repository.ChatSessionRepository;
 import me.mmebot.common.crypto.AesGcmCryptoService;
-import me.mmebot.common.logging.LogIds;
 import me.mmebot.core.domain.EncryptionContext;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.diary.domain.Diary;
@@ -26,7 +25,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
-import static me.mmebot.chat.api.dto.ChatMessageReq.*;
+import static me.mmebot.chat.api.dto.ChatMsgReq.*;
 import static me.mmebot.chat.api.dto.ChatSessionReq.*;
 import static me.mmebot.chat.api.dto.ChatSessionRes.*;
 
@@ -34,7 +33,7 @@ import static me.mmebot.chat.api.dto.ChatSessionRes.*;
 @RequiredArgsConstructor
 public class ChatService {
 
-    private final ChatMessageRepository chatMessageRepository;
+    private final ChatMessageRepository chatMsgRepository;
     private final ChatSessionRepository chatSessionRepository;
     private final DiaryService diaryService;
     private final UserService userService;
@@ -88,18 +87,18 @@ public class ChatService {
         return chatSessionRepository.findByDiaryId(diaryId);
     }
 
-    public CreateChatMessageRes createChatMessage(Long chatSessionId, CreateChatMessageReq req) {
+    public CreateChatMsgRes createChatMessage(Long chatSessionId, CreateChatMsgReq req) {
         User user = userService.getActiveUser(req.userId());
         ChatSession chatSession = chatSessionRepository.findById(chatSessionId).orElseThrow(() -> {
             return ChatException.chatSessionNotFound(chatSessionId);
         });
 
-        List<ChatMessage> chatMessageList = chatMessageRepository.findAllByChatSession(chatSession);
-        if (chatMessageList.isEmpty()) {
+        List<ChatMessage> chatMsgList = chatMsgRepository.findAllByChatSession(chatSession);
+        if (chatMsgList.isEmpty()) {
             throw ChatException.chatSessionHasNoMessages(chatSession.getId());
         }
         // seq asc 순으로 정렬
-        chatMessageList.sort(Comparator.comparing(ChatMessage::getSeq));
+        chatMsgList.sort(Comparator.comparing(ChatMessage::getSeq));
 
         /**
          * 1. Prompt
@@ -114,20 +113,20 @@ public class ChatService {
         String response = openAiService.sendChatMessage(
 //                user.getBot().getScript(),
                 diaryShort,
-                chatMessageList,
-                req.message());
+                chatMsgList,
+                req.msg());
 
         // 암호화 후, ai 와의 질답 메시지 각각 저장
         EncryptionContext context = encryptionContextFactory.createContext(aad);
-        String reqMsgEnc = aesGcmCryptoService.encryptWithAad(req.message(), aad);
+        String reqMsgEnc = aesGcmCryptoService.encryptWithAad(req.msg(), aad);
         String resMsgEnc = aesGcmCryptoService.encryptWithAad(response, aad);
 
-        int msgSeq = chatMessageList.size() + 1;
+        int msgSeq = chatMsgList.size() + 1;
         ChatMessage reqMsg = getMessage(reqMsgEnc, chatSession, msgSeq, context);
         ChatMessage resMsg = getMessage(resMsgEnc, chatSession, msgSeq + 1, context);
 
         saveChats(reqMsg, resMsg);
-        return new CreateChatMessageRes(response);
+        return new CreateChatMsgRes(response);
     }
 
     @Transactional
@@ -136,8 +135,8 @@ public class ChatService {
         saveChatMessage(res);
     }
 
-    private void saveChatMessage(ChatMessage chatMessage) {
-        chatMessageRepository.save(chatMessage);
+    private void saveChatMessage(ChatMessage chatMsg) {
+        chatMsgRepository.save(chatMsg);
     }
 
     private ChatMessage getMessage(String msg, ChatSession chatSession, int msgSeq, EncryptionContext context) {
@@ -156,7 +155,7 @@ public class ChatService {
      * userId
      * @return
      */
-//    public ChatMessageRes sendMessage() {
+//    public ChatMsgRes sendMessage() {
 //        return null;
 //    }
 }
