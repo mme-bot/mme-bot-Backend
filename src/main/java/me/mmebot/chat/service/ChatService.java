@@ -122,8 +122,8 @@ public class ChatService {
         String resMsgEnc = aesGcmCryptoService.encryptWithAad(response, aad);
 
         int msgSeq = chatMsgList.size() + 1;
-        ChatMessage reqMsg = getMessage(reqMsgEnc, chatSession, msgSeq, context);
-        ChatMessage resMsg = getMessage(resMsgEnc, chatSession, msgSeq + 1, context);
+        ChatMessage reqMsg = getMsg(reqMsgEnc, chatSession, msgSeq, context);
+        ChatMessage resMsg = getMsg(resMsgEnc, chatSession, msgSeq + 1, context);
 
         saveChats(reqMsg, resMsg);
         return new CreateChatMsgRes(response);
@@ -131,15 +131,15 @@ public class ChatService {
 
     @Transactional
     protected void saveChats(ChatMessage req, ChatMessage res) {
-        saveChatMessage(req);
-        saveChatMessage(res);
+        saveChatMsg(req);
+        saveChatMsg(res);
     }
 
-    private void saveChatMessage(ChatMessage chatMsg) {
+    private void saveChatMsg(ChatMessage chatMsg) {
         chatMsgRepository.save(chatMsg);
     }
 
-    private ChatMessage getMessage(String msg, ChatSession chatSession, int msgSeq, EncryptionContext context) {
+    private ChatMessage getMsg(String msg, ChatSession chatSession, int msgSeq, EncryptionContext context) {
         return new ChatMessage(
                 chatSession,
                 msgSeq,
