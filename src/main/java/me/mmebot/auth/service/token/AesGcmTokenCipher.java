@@ -48,9 +48,6 @@ public class AesGcmTokenCipher implements TokenCipher {
 
     private EncryptionContext createContext(TokenCipherSpec spec) {
         byte[] aadHash = spec.aadHash();
-        if (aadHash != null) {
-            return encryptionContextFactory.createContext(aadHash);
-        }
-        return encryptionContextFactory.createContext();
+        return encryptionContextFactory.createContext(aadHash);
     }
 }

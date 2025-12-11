@@ -39,9 +39,8 @@ public class DiaryService {
         System.out.println(summaryShort);
 
         String aadStr = user.getId().toString();
-        byte[] aad = aesGcmCryptoService.toAadBytes(aadStr);
-        String summaryShortEnc = aesGcmCryptoService.encryptWithAad(summaryShort, aad);
-        String contentEnc = aesGcmCryptoService.encryptWithAad(request.content(), aad);
+        String summaryShortEnc = aesGcmCryptoService.encryptWithAad(summaryShort, aadStr);
+        String contentEnc = aesGcmCryptoService.encryptWithAad(request.content(), aadStr);
 
         Diary diary = Diary.builder()
                 .user(user)
@@ -49,7 +48,7 @@ public class DiaryService {
                 .emotion(request.emotion())
                 .summaryShort(summaryShortEnc)
                 .date(request.date())
-                .encryptionContext(encryptionContextFactory.createContext(aad))
+                .encryptionContext(encryptionContextFactory.createContext(aadStr))
                 .build();
 
         Diary saved = diaryRepository.save(diary);

@@ -1,10 +1,12 @@
 package me.mmebot.core.service;
 
-import jakarta.transaction.Transactional;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.Objects;
+
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.mmebot.common.crypto.AesGcmCryptoService;
 import me.mmebot.core.config.EncryptionKeyProperties;
 import me.mmebot.core.domain.EncryptionContext;
 import me.mmebot.core.domain.EncryptionKey;
@@ -13,13 +15,13 @@ import me.mmebot.core.repository.EncryptionContextRepository;
 import me.mmebot.core.repository.EncryptionKeyRepository;
 import org.springframework.stereotype.Service;
 
-@Service
-@Transactional
 @Slf4j
+@Service
 public class EncryptionContextFactory {
 
     private static final EncryptionKeyStatus ACTIVE_STATUS = EncryptionKeyStatus.ACTIVE;
 
+    private final AesGcmCryptoService aesGcmCryptoService;
     private final EncryptionKeyRepository keyRepository;
     private final EncryptionContextRepository contextRepository;
     private final EncryptionKeyProperties keyProperties;
@@ -28,17 +30,19 @@ public class EncryptionContextFactory {
 
     public EncryptionContextFactory(EncryptionKeyRepository keyRepository,
                                     EncryptionContextRepository contextRepository,
-                                    EncryptionKeyProperties keyProperties) {
+                                    EncryptionKeyProperties keyProperties,
+                                    AesGcmCryptoService aesGcmCryptoService) {
         this.keyRepository = keyRepository;
         this.contextRepository = contextRepository;
         this.keyProperties = Objects.requireNonNull(keyProperties, "encryptionKeyProperties must not be null");
         this.keyLengths = Objects.requireNonNull(keyProperties.length(), "encryptionKeyLengths must not be null");
         this.secureRandom = new SecureRandom();
+        this.aesGcmCryptoService = aesGcmCryptoService;
     }
 
-    public EncryptionContext createContext() {
-        return createContext(null);
-    }
+//    public EncryptionContext createContext() {
+//        return createContext();
+//    }
 
     public EncryptionContext createContext(byte[] aadHash) {
         EncryptionKey key = keyRepository.findTopByStatusOrderByValidFromDesc(ACTIVE_STATUS)
@@ -55,6 +59,10 @@ public class EncryptionContextFactory {
         EncryptionContext saved = contextRepository.save(context);
         log.debug("Created encryption context {} using key {}", saved.getId(), key.getId());
         return saved;
+    }
+
+    public EncryptionContext createContext(String hashString) {
+        return createContext(aesGcmCryptoService.toAadBytes(hashString));
     }
 
     private EncryptionKey createDefaultKey() {

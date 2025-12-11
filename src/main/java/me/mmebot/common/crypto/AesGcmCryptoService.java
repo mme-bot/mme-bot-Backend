@@ -34,6 +34,9 @@ public class AesGcmCryptoService {
      * 문자열 암호화 (AAD 사용)
      * 예: userId, recordId 등을 AAD로 넣어서 위변조 검출 강화
      */
+    public String encryptWithAad(String plainText, String aadStr) {
+        return AesGcmUtils.encrypt(plainText, keyBytes, toAadBytes(aadStr));
+    }
     public String encryptWithAad(String plainText, byte[] aad) {
         return AesGcmUtils.encrypt(plainText, keyBytes, aad);
     }
@@ -50,6 +53,10 @@ public class AesGcmCryptoService {
      */
     public String decryptWithAad(String cipherTextBase64, byte[] aad) {
         return AesGcmUtils.decrypt(cipherTextBase64, keyBytes, aad);
+    }
+
+    public String decryptWithAad(String cipherTextBase64, String aadStr) {
+        return AesGcmUtils.decrypt(cipherTextBase64, keyBytes, toAadBytes(aadStr));
     }
 
     public byte[] toAadBytes(String aadString) {

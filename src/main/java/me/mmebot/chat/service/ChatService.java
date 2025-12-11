@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static me.mmebot.chat.api.dto.ChatMsgReq.*;
+import static me.mmebot.chat.api.dto.ChatMsgRes.*;
 import static me.mmebot.chat.api.dto.ChatSessionReq.*;
 import static me.mmebot.chat.api.dto.ChatSessionRes.*;
 
@@ -64,8 +65,7 @@ public class ChatService {
             throw ChatException.chatSessionAlreadyExists(diary.getId(), session.getId());
         }
 
-        byte[] aad = aesGcmCryptoService.toAadBytes(user.getId().toString());
-        EncryptionContext context = encryptionContextFactory.createContext(aad);
+        EncryptionContext context = encryptionContextFactory.createContext(user.getId().toString());
 
         ChatSession chatSession = ChatSession.builder()
                 .diary(diary)
@@ -93,6 +93,10 @@ public class ChatService {
             return ChatException.chatSessionNotFound(chatSessionId);
         });
 
+        if (!user.equals(chatSession.getDiary().getUser())) {
+            // throw error
+        }
+
         List<ChatMessage> chatMsgList = chatMsgRepository.findAllByChatSession(chatSession);
         if (chatMsgList.isEmpty()) {
             throw ChatException.chatSessionHasNoMessages(chatSession.getId());
@@ -107,8 +111,7 @@ public class ChatService {
          */
 
         String diaryShortEnc = chatSession.getDiary().getSummaryShort();
-        byte[] aad = aesGcmCryptoService.toAadBytes(user.getId().toString());
-        String diaryShort = aesGcmCryptoService.decryptWithAad(diaryShortEnc, aad);
+        String diaryShort = aesGcmCryptoService.decryptWithAad(diaryShortEnc, user.getId().toString());
 
         String response = openAiService.sendChatMessage(
 //                user.getBot().getScript(),
@@ -117,13 +120,13 @@ public class ChatService {
                 req.msg());
 
         // 암호화 후, ai 와의 질답 메시지 각각 저장
-        EncryptionContext context = encryptionContextFactory.createContext(aad);
-        String reqMsgEnc = aesGcmCryptoService.encryptWithAad(req.msg(), aad);
-        String resMsgEnc = aesGcmCryptoService.encryptWithAad(response, aad);
+        EncryptionContext context = encryptionContextFactory.createContext(user.getId().toString());
+        String reqMsgEnc = aesGcmCryptoService.encryptWithAad(req.msg(), context.getAadHash());
+        String resMsgEnc = aesGcmCryptoService.encryptWithAad(response, context.getAadHash());
 
         int msgSeq = chatMsgList.size() + 1;
-        ChatMessage reqMsg = getMsg(reqMsgEnc, chatSession, msgSeq, context);
-        ChatMessage resMsg = getMsg(resMsgEnc, chatSession, msgSeq + 1, context);
+        ChatMessage reqMsg = getChatMessage(reqMsgEnc, chatSession, msgSeq, context);
+        ChatMessage resMsg = getChatMessage(resMsgEnc, chatSession, msgSeq + 1, context);
 
         saveChats(reqMsg, resMsg);
         return new CreateChatMsgRes(response);
@@ -131,15 +134,15 @@ public class ChatService {
 
     @Transactional
     protected void saveChats(ChatMessage req, ChatMessage res) {
-        saveChatMsg(req);
-        saveChatMsg(res);
+        saveChatMessage(req);
+        saveChatMessage(res);
     }
 
-    private void saveChatMsg(ChatMessage chatMsg) {
+    private void saveChatMessage(ChatMessage chatMsg) {
         chatMsgRepository.save(chatMsg);
     }
 
-    private ChatMessage getMsg(String msg, ChatSession chatSession, int msgSeq, EncryptionContext context) {
+    private ChatMessage getChatMessage(String msg, ChatSession chatSession, int msgSeq, EncryptionContext context) {
         return new ChatMessage(
                 chatSession,
                 msgSeq,
@@ -147,6 +150,40 @@ public class ChatService {
                 msg,
                 context
         );
+    }
+
+    public StartChatRes createFirstChat(Long chatSessionId, StartChatReq req) {
+        /**
+         * 세션으로 첫 메시지 생성하기
+         */
+        User user = userService.getActiveUser(req.userId());
+        ChatSession chatSession = chatSessionRepository.findById(chatSessionId).orElseThrow(() -> {
+            return ChatException.chatSessionNotFound(chatSessionId);
+        });
+
+        // 유저 검증
+        if (!user.equals(chatSession.getDiary().getUser())) {
+            // throw error
+        }
+
+        Diary diary = chatSession.getDiary();
+        String summaryShortEnc = diary.getSummaryShort();
+        EncryptionContext encryptionContext = diary.getEncryptionContext();
+        String summaryShort = aesGcmCryptoService.decryptWithAad(summaryShortEnc, encryptionContext.getAadHash());
+        System.out.println(aesGcmCryptoService.decryptWithAad(diary.getContent(), encryptionContext.getAadHash()));
+
+        String resMsg = openAiService.sendFirstChatMsg(summaryShort);
+        EncryptionContext msgEncContext = encryptionContextFactory.createContext(user.getId().toString());
+        String resMsgEnc = aesGcmCryptoService.encryptWithAad("resMsg", msgEncContext.getAadHash());
+
+        ChatMessage chatMessage = getChatMessage(
+                resMsgEnc,
+                chatSession,
+                1,
+                msgEncContext
+        );
+        saveChatMessage(chatMessage);
+        return new StartChatRes(resMsg);
     }
 
     /**
