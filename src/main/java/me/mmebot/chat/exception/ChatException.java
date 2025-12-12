@@ -60,4 +60,16 @@ public class ChatException extends ApiException {
                 "chat.session.no_messages"
         );
     }
+
+    public static ChatException chatSessionUserMismatch(Long chatSessionId, Long requesterUserId, Long ownerUserId) {
+        return new ChatException(
+                HttpStatus.FORBIDDEN,
+                "User %d cannot access chat session %d owned by user %d".formatted(
+                        requesterUserId,
+                        chatSessionId,
+                        ownerUserId
+                ),
+                "chat.session.user_mismatch"
+        );
+    }
 }

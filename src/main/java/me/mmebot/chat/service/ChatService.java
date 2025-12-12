@@ -94,7 +94,11 @@ public class ChatService {
         });
 
         if (!user.equals(chatSession.getDiary().getUser())) {
-            // throw error
+            throw ChatException.chatSessionUserMismatch(
+                    chatSession.getId(),
+                    user.getId(),
+                    chatSession.getDiary().getUser().getId()
+            );
         }
 
         List<ChatMessage> chatMsgList = chatMsgRepository.findAllByChatSession(chatSession);
@@ -163,7 +167,11 @@ public class ChatService {
 
         // 유저 검증
         if (!user.equals(chatSession.getDiary().getUser())) {
-            // throw error
+            throw ChatException.chatSessionUserMismatch(
+                    chatSession.getId(),
+                    user.getId(),
+                    chatSession.getDiary().getUser().getId()
+            );
         }
 
         Diary diary = chatSession.getDiary();
