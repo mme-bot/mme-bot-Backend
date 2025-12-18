@@ -89,7 +89,7 @@ public class ChatService {
 
     public CreateChatMsgRes createChatMessage(Long chatSessionId, CreateChatMsgReq req) {
         User user = userService.getActiveUser(req.userId());
-        ChatSession chatSession = chatSessionRepository.findById(chatSessionId).orElseThrow(() -> {
+        ChatSession chatSession = chatSessionRepository.findWithDiaryAndUser(chatSessionId).orElseThrow(() -> {
             return ChatException.chatSessionNotFound(chatSessionId);
         });
 
@@ -178,7 +178,6 @@ public class ChatService {
         String summaryShortEnc = diary.getSummaryShort();
         EncryptionContext encryptionContext = diary.getEncryptionContext();
         String summaryShort = aesGcmCryptoService.decryptWithAad(summaryShortEnc, encryptionContext.getAadHash());
-        System.out.println(aesGcmCryptoService.decryptWithAad(diary.getContent(), encryptionContext.getAadHash()));
 
         String resMsg = openAiService.sendFirstChatMsg(summaryShort);
         EncryptionContext msgEncContext = encryptionContextFactory.createContext(user.getId().toString());
@@ -192,6 +191,16 @@ public class ChatService {
         );
         saveChatMessage(chatMessage);
         return new StartChatRes(resMsg);
+    }
+
+    /**
+     * 특정 채팅에 대한 메시지 목록을 가져온다.
+     * @param chatSessionId
+     * @return
+     */
+    public List<ChatMsgLes> getChatMsgs(Long chatSessionId) {
+        // TODO JWT 구현이 될 경우 userId 와 chatSession 이 가진 유저가 같은 유저인지도 검증 필요
+        return null;
     }
 
     /**

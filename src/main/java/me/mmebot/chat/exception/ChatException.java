@@ -72,4 +72,14 @@ public class ChatException extends ApiException {
                 "chat.session.user_mismatch"
         );
     }
+
+    public static ChatException diaryNotFound(Long chatSessionId) {
+        return new ChatException(
+                HttpStatus.FORBIDDEN,
+                "Chat Session Id %d Diary Not Found".formatted(
+                        chatSessionId
+                ),
+                "chat.session.diary_not_found"
+        );
+    }
 }

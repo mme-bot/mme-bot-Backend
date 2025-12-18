@@ -7,4 +7,9 @@ public class ChatMsgRes {
     public record CreateChatMsgRes(
             String msg
     ) {}
+
+    public record ChatMsgLes(
+            int seq,
+            String msg
+    ) {}
 }
