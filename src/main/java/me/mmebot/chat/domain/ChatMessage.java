@@ -45,9 +45,23 @@ public class ChatMessage {
     @JoinColumn(name = "encryption_context_id", nullable = false)
     private EncryptionContext encryptionContext;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reply_to_message_id")
+    private ChatMessage replyMsg;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
+
+    public ChatMessage(ChatSession chatSession, Integer seq, ChatMessageRole role, String content, EncryptionContext encryptionContext, ChatMessage replyMsg) {
+        this.chatSession = chatSession;
+        this.seq = seq;
+        this.role = role;
+        this.content = content;
+        this.createdAt = OffsetDateTime.now();
+        this.encryptionContext = encryptionContext;
+        this.replyMsg = replyMsg;
+    }
 
     public ChatMessage(ChatSession chatSession, Integer seq, ChatMessageRole role, String content, EncryptionContext encryptionContext) {
         this.chatSession = chatSession;
@@ -56,5 +70,9 @@ public class ChatMessage {
         this.content = content;
         this.createdAt = OffsetDateTime.now();
         this.encryptionContext = encryptionContext;
+    }
+
+    public void updateReplyMsg(ChatMessage replyMsg) {
+        this.replyMsg = replyMsg;
     }
 }
