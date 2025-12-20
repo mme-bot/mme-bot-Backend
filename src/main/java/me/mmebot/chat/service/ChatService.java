@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -78,6 +79,10 @@ public class ChatService {
         
         return new CreateChatSessionRes(chatSession.getId());
     }
+
+    protected Optional<ChatSession> getChatSessionWithDiaryAndUserById(Long chatSessionId) {
+        return chatSessionRepository.findWithDiaryAndUser(chatSessionId);
+    }
     
     protected void saveChatSession(ChatSession chatSession) {
         chatSessionRepository.save(chatSession);
@@ -89,9 +94,8 @@ public class ChatService {
 
     public CreateChatMsgRes createChatMessage(Long chatSessionId, CreateChatMsgReq req) {
         User user = userService.getActiveUser(req.userId());
-        ChatSession chatSession = chatSessionRepository.findWithDiaryAndUser(chatSessionId).orElseThrow(() -> {
-            return ChatException.chatSessionNotFound(chatSessionId);
-        });
+        ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
+                .orElseThrow(() -> ChatException.chatSessionNotFound(chatSessionId));
 
         if (!user.equals(chatSession.getDiary().getUser())) {
             throw ChatException.chatSessionUserMismatch(
@@ -101,7 +105,7 @@ public class ChatService {
             );
         }
 
-        List<ChatMessage> chatMsgList = chatMsgRepository.findAllByChatSession(chatSession);
+        List<ChatMessage> chatMsgList = getChatMessages(chatSession);
         if (chatMsgList.isEmpty()) {
             throw ChatException.chatSessionHasNoMessages(chatSession.getId());
         }
@@ -142,6 +146,10 @@ public class ChatService {
         saveChatMessage(res);
     }
 
+    private List<ChatMessage> getChatMessages(ChatSession chatSession) {
+        return chatMsgRepository.findAllByChatSessionWithEnc(chatSession);
+    }
+
     private void saveChatMessage(ChatMessage chatMsg) {
         chatMsgRepository.save(chatMsg);
     }
@@ -161,9 +169,8 @@ public class ChatService {
          * 세션으로 첫 메시지 생성하기
          */
         User user = userService.getActiveUser(req.userId());
-        ChatSession chatSession = chatSessionRepository.findById(chatSessionId).orElseThrow(() -> {
-            return ChatException.chatSessionNotFound(chatSessionId);
-        });
+        ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId).orElseThrow(() ->
+            ChatException.chatSessionNotFound(chatSessionId));
 
         // 유저 검증
         if (!user.equals(chatSession.getDiary().getUser())) {
@@ -195,12 +202,27 @@ public class ChatService {
 
     /**
      * 특정 채팅에 대한 메시지 목록을 가져온다.
-     * @param chatSessionId
+     * @param chatSessionId : 채팅 세션 id
      * @return
      */
-    public List<ChatMsgLes> getChatMsgs(Long chatSessionId) {
+    public List<ChatMsg> getChatMsgs(Long chatSessionId) {
         // TODO JWT 구현이 될 경우 userId 와 chatSession 이 가진 유저가 같은 유저인지도 검증 필요
-        return null;
+        ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
+                .orElseThrow(() -> ChatException.chatSessionNotFound(chatSessionId));
+
+        List<ChatMessage> chatMessages = getChatMessages(chatSession);
+        if (chatMessages.isEmpty()) {
+            throw ChatException.chatSessionHasNoMessages(chatSession.getId());
+        }
+
+        List<ChatMsg> chatMsgs = new ArrayList<>(chatMessages.stream().map(msg -> {
+            String message = aesGcmCryptoService.decryptWithAad(msg.getContent(), msg.getEncryptionContext().getAadHash());
+            return new ChatMsg(msg.getSeq(), msg.getRole(), message);
+        }).toList());
+
+        chatMsgs.sort(Comparator.comparing(ChatMsg::seq));
+
+        return chatMsgs;
     }
 
     /**

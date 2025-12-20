@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import me.mmebot.chat.api.dto.ChatMsgReq.CreateChatMsgReq;
 import me.mmebot.chat.api.dto.ChatMsgRes;
+import me.mmebot.chat.api.dto.ChatMsgRes.ChatMsg;
 import me.mmebot.chat.api.dto.ChatMsgRes.CreateChatMsgRes;
 import me.mmebot.chat.api.dto.ChatMsgRes.StartChatRes;
 import me.mmebot.chat.service.ChatService;
@@ -28,7 +29,7 @@ public class ChatController {
     }
 
     @GetMapping("/{chatSession}/messages")
-    public List<ChatMsgRes.ChatMsgLes> chatMsgs(@PathVariable("chatSessionId") Long chatSessionId) {
+    public List<ChatMsg> chatMsgs(@PathVariable("chatSessionId") Long chatSessionId) {
         return chatService.getChatMsgs(chatSessionId);
     }
 
