@@ -3,7 +3,6 @@ package me.mmebot.chat.api;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import me.mmebot.chat.api.dto.ChatMsgReq.CreateChatMsgReq;
-import me.mmebot.chat.api.dto.ChatMsgRes;
 import me.mmebot.chat.api.dto.ChatMsgRes.ChatMsg;
 import me.mmebot.chat.api.dto.ChatMsgRes.CreateChatMsgRes;
 import me.mmebot.chat.api.dto.ChatMsgRes.StartChatRes;
@@ -39,7 +38,7 @@ public class ChatController {
     }
 
     @PostMapping("/{chatSessionId}/messages")
-    public CreateChatMsgRes sendAndStreamMsg(@RequestBody @Valid CreateChatMsgReq req, @PathVariable("chatSessionId") Long chatSessionId) {
+    public List<CreateChatMsgRes> sendAndStreamMsg(@RequestBody @Valid CreateChatMsgReq req, @PathVariable("chatSessionId") Long chatSessionId) {
         return chatService.createChatMessage(chatSessionId, req);
     }
 }

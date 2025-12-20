@@ -53,11 +53,35 @@ public class ChatException extends ApiException {
         );
     }
 
+    public static ChatException chatMessageNotFound(Long chatMessageId) {
+        return new ChatException(
+                HttpStatus.NOT_FOUND,
+                "Chat message %d not found".formatted(chatMessageId),
+                "chat.message.not_found"
+        );
+    }
+
     public static ChatException chatSessionHasNoMessages(Long chatSessionId) {
         return new ChatException(
                 HttpStatus.BAD_REQUEST,
                 "Chat session %d does not contain any messages".formatted(chatSessionId),
                 "chat.session.no_messages"
+        );
+    }
+
+    public static ChatException chatSessionAlreadyHasMessages(Long chatSessionId) {
+        return new ChatException(
+                HttpStatus.CONFLICT,
+                "Chat session %d already contains messages".formatted(chatSessionId),
+                "chat.session.messages_exist"
+        );
+    }
+
+    public static ChatException chatMessageAlreadyHasReply(Long chatMessageId) {
+        return new ChatException(
+                HttpStatus.CONFLICT,
+                "Chat message %d already has a reply".formatted(chatMessageId),
+                "chat.message.reply_exists"
         );
     }
 

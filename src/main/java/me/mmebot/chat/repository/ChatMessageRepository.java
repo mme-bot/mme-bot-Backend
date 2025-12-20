@@ -1,6 +1,8 @@
 package me.mmebot.chat.repository;
 
 import java.util.List;
+import java.util.Optional;
+
 import me.mmebot.chat.domain.ChatMessage;
 import me.mmebot.chat.domain.ChatSession;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,4 +17,6 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     where cm.chatSession = :chatSession
 """)
     List<ChatMessage> findAllByChatSessionWithEnc(ChatSession chatSession);
+
+    List<ChatMessage> findAllByReplyMsgId(Long replyMsgId);
 }

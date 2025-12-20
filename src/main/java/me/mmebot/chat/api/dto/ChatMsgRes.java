@@ -4,9 +4,13 @@ import me.mmebot.openai.dto.ChatMessageRole;
 
 public class ChatMsgRes {
     public record StartChatRes(
+            Long chatMsgId,
             String msg
     ) {}
     public record CreateChatMsgRes(
+            Long chatMsgId,
+            Integer seq,
+            ChatMessageRole role,
             String msg
     ) {}
 

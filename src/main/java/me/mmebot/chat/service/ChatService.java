@@ -83,6 +83,10 @@ public class ChatService {
     protected Optional<ChatSession> getChatSessionWithDiaryAndUserById(Long chatSessionId) {
         return chatSessionRepository.findWithDiaryAndUser(chatSessionId);
     }
+
+    private Optional<ChatMessage> getChatMsg(Long chatMessageId) {
+        return chatMsgRepository.findById(chatMessageId);
+    }
     
     protected void saveChatSession(ChatSession chatSession) {
         chatSessionRepository.save(chatSession);
@@ -92,7 +96,7 @@ public class ChatService {
         return chatSessionRepository.findByDiaryId(diaryId);
     }
 
-    public CreateChatMsgRes createChatMessage(Long chatSessionId, CreateChatMsgReq req) {
+    public List<CreateChatMsgRes> createChatMessage(Long chatSessionId, CreateChatMsgReq req) {
         User user = userService.getActiveUser(req.userId());
         ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
                 .orElseThrow(() -> ChatException.chatSessionNotFound(chatSessionId));
@@ -103,6 +107,14 @@ public class ChatService {
                     user.getId(),
                     chatSession.getDiary().getUser().getId()
             );
+        }
+
+        ChatMessage replyMsg = getChatMsg(req.replyToMsgId())
+                .orElseThrow(() -> ChatException.chatMessageNotFound(req.replyToMsgId()));
+
+        List<ChatMessage> replyMsgs = chatMsgRepository.findAllByReplyMsgId(req.replyToMsgId());
+        if (!replyMsgs.isEmpty()) {
+            throw ChatException.chatMessageAlreadyHasReply(req.replyToMsgId());
         }
 
         List<ChatMessage> chatMsgList = getChatMessages(chatSession);
@@ -121,37 +133,41 @@ public class ChatService {
         String diaryShortEnc = chatSession.getDiary().getSummaryShort();
         String diaryShort = aesGcmCryptoService.decryptWithAad(diaryShortEnc, user.getId().toString());
 
-        String response = openAiService.sendChatMessage(
-//                user.getBot().getScript(),
-                diaryShort,
-                chatMsgList,
-                req.msg());
+//        String response = openAiService.sendChatMessage(
+////                user.getBot().getScript(),
+//                diaryShort,
+//                chatMsgList,
+//                req.msg());
 
+        String response = "테스트";
         // 암호화 후, ai 와의 질답 메시지 각각 저장
         EncryptionContext context = encryptionContextFactory.createContext(user.getId().toString());
         String reqMsgEnc = aesGcmCryptoService.encryptWithAad(req.msg(), context.getAadHash());
         String resMsgEnc = aesGcmCryptoService.encryptWithAad(response, context.getAadHash());
 
-        int msgSeq = chatMsgList.size() + 1;
-        ChatMessage reqMsg = getChatMessage(reqMsgEnc, chatSession, msgSeq, context);
-        ChatMessage resMsg = getChatMessage(resMsgEnc, chatSession, msgSeq + 1, context);
+        ChatMessage reqMsg = getChatMessage(reqMsgEnc, chatSession, replyMsg.getSeq() + 1, context, replyMsg);
+        ChatMessage resMsg = getChatMessage(resMsgEnc, chatSession, replyMsg.getSeq() + 2, context, reqMsg);
 
         saveChats(reqMsg, resMsg);
-        return new CreateChatMsgRes(response);
+
+        return List.of(
+                new CreateChatMsgRes(reqMsg.getId(), reqMsg.getSeq(), reqMsg.getRole(), req.msg()),
+                new CreateChatMsgRes(resMsg.getId(), resMsg.getSeq(), resMsg.getRole(), response)
+        );
     }
 
     @Transactional
     protected void saveChats(ChatMessage req, ChatMessage res) {
-        saveChatMessage(req);
-        saveChatMessage(res);
+        chatMsgRepository.save(req);
+        chatMsgRepository.save(res);
     }
 
     private List<ChatMessage> getChatMessages(ChatSession chatSession) {
         return chatMsgRepository.findAllByChatSessionWithEnc(chatSession);
     }
 
-    private void saveChatMessage(ChatMessage chatMsg) {
-        chatMsgRepository.save(chatMsg);
+    private ChatMessage saveChatMessage(ChatMessage chatMsg) {
+        return chatMsgRepository.save(chatMsg);
     }
 
     private ChatMessage getChatMessage(String msg, ChatSession chatSession, int msgSeq, EncryptionContext context) {
@@ -161,6 +177,17 @@ public class ChatService {
                 ChatMessageRole.SYSTEM,
                 msg,
                 context
+        );
+    }
+
+    private ChatMessage getChatMessage(String msg, ChatSession chatSession, int msgSeq, EncryptionContext context, ChatMessage replyMsg) {
+        return new ChatMessage(
+                chatSession,
+                msgSeq,
+                ChatMessageRole.SYSTEM,
+                msg,
+                context,
+                replyMsg
         );
     }
 
@@ -181,6 +208,10 @@ public class ChatService {
             );
         }
 
+        if (!getChatMessages(chatSession).isEmpty()) {
+            throw ChatException.chatSessionAlreadyHasMessages(chatSession.getId());
+        }
+
         Diary diary = chatSession.getDiary();
         String summaryShortEnc = diary.getSummaryShort();
         EncryptionContext encryptionContext = diary.getEncryptionContext();
@@ -197,7 +228,7 @@ public class ChatService {
                 msgEncContext
         );
         saveChatMessage(chatMessage);
-        return new StartChatRes(resMsg);
+        return new StartChatRes(chatMessage.getId(), resMsg);
     }
 
     /**

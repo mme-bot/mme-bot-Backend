@@ -11,7 +11,7 @@ public class ChatMsgReq {
             @NotNull
             Long userId,
             @NotNull
-            Integer prevSeq,
+            Long replyToMsgId,
             @NotBlank
             String msg
     ) {}
