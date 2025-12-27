@@ -26,7 +26,7 @@ public class DefaultUserInitializer implements CommandLineRunner {
         String defaultEmail = "admin@naver.com";
         String defaultPassword = "admin123!";
 
-        userRepository.findByEmail(defaultEmail).ifPresentOrElse(
+        userRepository.findByEmailHash(defaultEmail).ifPresentOrElse(
                 _ -> {
                     // 이미 존재하면 로그만 출력
                     log.info("기본 유저 이미 존재: " + defaultEmail);
@@ -35,10 +35,10 @@ public class DefaultUserInitializer implements CommandLineRunner {
                     EncryptionContext context = encryptionContextFactory.createContext(defaultEmail.substring(0, 3).getBytes(StandardCharsets.UTF_8));
                     // 기본 유저 생성
                     User admin = User.builder()
-                            .email(defaultEmail)
+                            .emailCipher(defaultEmail)
                             .password(passwordEncoder.encode(defaultPassword))
                             .nickname("admin")
-                            .encryptionContext(context)
+                            .emailEncryptionContext(context)
                             .build();
                     userRepository.save(admin);
                     log.info("기본 계정 생성 완료");

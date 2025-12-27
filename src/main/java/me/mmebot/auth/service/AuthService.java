@@ -51,7 +51,7 @@ public class AuthService {
     public SignInResult signIn(String email, String rawPassword, ClientMetadata metadata) {
         String normalizedEmail = normalizeEmail(email);
         log.info("Attempting sign-in for {}", normalizedEmail);
-        User user = userRepository.findByEmail(normalizedEmail)
+        User user = userRepository.findByEmailHash(normalizedEmail)
                 .orElseThrow(() -> {
                     log.warn("Sign-in failed: no user found for {}", normalizedEmail);
                     return AuthException.invalidCredentials();
@@ -79,7 +79,7 @@ public class AuthService {
     public void signUp(SignUpCommand command) {
         String normalizedEmail = normalizeEmail(command.email());
         log.info("Attempting sign-up for {}", normalizedEmail);
-        userRepository.findByEmail(normalizedEmail)
+        userRepository.findByEmailHash(normalizedEmail)
                 .ifPresent(_ -> {
                     log.warn("Sign-up failed: {} already in use", normalizedEmail);
                     throw AuthException.duplicateEmail();
@@ -88,11 +88,11 @@ public class AuthService {
         emailVerificationService.requireVerified(command.emailVerificationId(), normalizedEmail);
 
         User user = User.builder()
-                .email(normalizedEmail)
+                .emailCipher(normalizedEmail)
                 .password(passwordEncoder.encode(command.password()))
                 .nickname(command.nickname().trim())
                 .sns(false)
-                .encryptionContext(encryptionContextFactory.createContext(tokenHashService.hash(normalizedEmail)))
+                .emailEncryptionContext(encryptionContextFactory.createContext(tokenHashService.hash(normalizedEmail)))
                 .build();
 
         User saved = userRepository.save(user);

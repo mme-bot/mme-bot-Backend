@@ -41,10 +41,17 @@ public class User {
     @JoinColumn(name = "bot_id")
     private Bot bot;
 
-    @Column(nullable = false, length = 320, unique = true)
-    private String email;
+    @Column(
+//            nullable = false,
+            length = 320, unique = true)
+    private String emailHash;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 320)
+    private String emailCipher;
+
+    @Column(
+//            nullable = false,
+            length = 255)
     private String password;
 
     @Column(nullable = false, length = 40)
@@ -54,8 +61,10 @@ public class User {
     private boolean sns;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "encryption_context_id", nullable = false)
-    private EncryptionContext encryptionContext;
+    @JoinColumn(name = "email_encrypt_id"
+//            , nullable = false
+    )
+    private EncryptionContext emailEncryptionContext;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -70,5 +79,11 @@ public class User {
 
     public boolean isDeleted() {
         return deletedAt != null;
+    }
+
+    public User(String nickname) {
+        this.createdAt = OffsetDateTime.now();
+        this.sns = false;
+        this.nickname = nickname;
     }
 }

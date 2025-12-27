@@ -32,8 +32,6 @@ import me.mmebot.auth.service.AuthServiceRecords.ClientMetadata;
 import me.mmebot.auth.service.AuthServiceRecords.SignInResult;
 import me.mmebot.auth.service.AuthServiceRecords.SignUpCommand;
 import me.mmebot.auth.service.AuthServiceRecords.TokenPair;
-import me.mmebot.auth.service.EncryptionContextService;
-import me.mmebot.auth.service.RedisService;
 import me.mmebot.core.domain.EncryptionContext;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.user.domain.User;
@@ -100,7 +98,7 @@ class AuthServiceTest {
         OffsetDateTime futureExpiry = OffsetDateTime.now().plusHours(2);
         User user = buildUser(1L, "user@example.com", "encoded-pass", null);
 
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailHash("user@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("password", "encoded-pass")).thenReturn(true);
         Role adminRole = Role.builder().roleName(RoleName.ROLE_ADMIN).build();
         when(roleRepository.findByUserId(1L)).thenReturn(List.of(adminRole));
@@ -131,7 +129,7 @@ class AuthServiceTest {
         assertThat(result.refreshToken()).isEqualTo("encrypted-refresh");
 
         ArgumentCaptor<String> emailCaptor = ArgumentCaptor.forClass(String.class);
-        verify(userRepository).findByEmail(emailCaptor.capture());
+        verify(userRepository).findByEmailHash(emailCaptor.capture());
         assertThat(emailCaptor.getValue()).isEqualTo("user@example.com");
 
         verify(passwordEncoder).matches("password", "encoded-pass");
@@ -167,7 +165,7 @@ class AuthServiceTest {
         OffsetDateTime futureExpiry = OffsetDateTime.now().plusHours(2);
         User user = buildUser(5L, "empty@example.com", "encoded", null);
 
-        when(userRepository.findByEmail("empty@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailHash("empty@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("pw", "encoded")).thenReturn(true);
         when(roleRepository.findByUserId(5L)).thenReturn(List.of());
         when(jwtTokenService.createAccessToken(eq(5L), anyCollection())).thenReturn("access");
@@ -203,7 +201,7 @@ class AuthServiceTest {
 
     @Test
     void signIn_whenUserNotFound_throwsInvalidCredentials() {
-        when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailHash("missing@example.com")).thenReturn(Optional.empty());
 
         AuthException ex = assertThrows(AuthException.class,
                 () -> authService.signIn("missing@example.com", "pw", null));
@@ -215,7 +213,7 @@ class AuthServiceTest {
     @Test
     void signIn_whenUserDeleted_throwsDeletedAccount() {
         User user = buildUser(7L, "deleted@example.com", "secret", OffsetDateTime.now().minusDays(1));
-        when(userRepository.findByEmail("deleted@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailHash("deleted@example.com")).thenReturn(Optional.of(user));
 
         AuthException ex = assertThrows(AuthException.class,
                 () -> authService.signIn("deleted@example.com", "secret", null));
@@ -227,7 +225,7 @@ class AuthServiceTest {
     @Test
     void signIn_whenPasswordMismatch_throwsInvalidCredentials() {
         User user = buildUser(3L, "user@example.com", "encoded", null);
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailHash("user@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong", "encoded")).thenReturn(false);
 
         AuthException ex = assertThrows(AuthException.class,
@@ -240,7 +238,7 @@ class AuthServiceTest {
     void signUp_createsUserWithNormalizedEmailAndDefaultRole() {
         SignUpCommand command = new SignUpCommand(" NewUser@Email.com ", "raw-pass", " Nick ", 10L);
 
-        when(userRepository.findByEmail("newuser@email.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailHash("newuser@email.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("raw-pass")).thenReturn("encoded");
         byte[] emailHash = new byte[]{9, 9};
         when(tokenHashService.hash("newuser@email.com")).thenReturn(emailHash);
@@ -289,7 +287,7 @@ class AuthServiceTest {
     @Test
     void signUp_whenEmailInUse_throwsDuplicateEmail() {
         User existing = buildUser(50L, "dup@example.com", "pass", null);
-        when(userRepository.findByEmail("dup@example.com")).thenReturn(Optional.of(existing));
+        when(userRepository.findByEmailHash("dup@example.com")).thenReturn(Optional.of(existing));
 
         SignUpCommand command = new SignUpCommand("dup@example.com", "pass", "Nick", 1L);
         AuthException ex = assertThrows(AuthException.class, () -> authService.signUp(command));
@@ -302,7 +300,7 @@ class AuthServiceTest {
     void signUp_whenRoleAlreadyExists_skipsRoleCreation() {
         SignUpCommand command = new SignUpCommand("user@example.com", "pw", "Nick", 2L);
 
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailHash("user@example.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("pw")).thenReturn("encoded");
         byte[] emailHash = new byte[]{1};
         when(tokenHashService.hash("user@example.com")).thenReturn(emailHash);

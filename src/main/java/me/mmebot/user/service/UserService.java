@@ -1,6 +1,7 @@
 package me.mmebot.user.service;
 
 import lombok.RequiredArgsConstructor;
+import me.mmebot.user.api.dto.TestUser;
 import me.mmebot.user.domain.User;
 import me.mmebot.user.exception.UserException;
 import me.mmebot.user.repository.UserRepository;
@@ -18,5 +19,11 @@ public class UserService {
             throw UserException.userDeleted(userId);
         }
         return user;
+    }
+
+    public TestUser.TestUserRes createTestUser(TestUser.TestUserReq req) {
+        User testUser = new User(req.nickname());
+        userRepository.save(testUser);
+        return new TestUser.TestUserRes(testUser.getId(), testUser.getNickname());
     }
 }
