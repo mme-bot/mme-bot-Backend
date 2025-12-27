@@ -19,6 +19,7 @@ RUN ./gradlew clean bootJar --no-daemon \
 FROM --platform=linux/amd64 eclipse-temurin:25-jdk
 ARG APP_PORT=8000
 ENV SERVER_PORT=${APP_PORT}
+ENV OPENAI_API_KEY=""
 WORKDIR /app
 
 COPY --from=builder /workspace/app.jar app.jar
