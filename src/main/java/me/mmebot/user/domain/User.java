@@ -28,7 +28,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 @Builder
 @Entity
 @Table(name = DatabaseNames.Tables.USERS, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
-        @Index(name = "idx_users_email", columnList = "email")
+        @Index(name = "idx_users_email", columnList = "email_hash")
 })
 public class User {
 
