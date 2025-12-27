@@ -1,0 +1,71 @@
+services:
+  app:
+    image: holidaykang/mmebot:latest
+    container_name: mmebot-app
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      SPRING_DATASOURCE_URL: ${DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-holiday}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-in8282}
+      SPRING_CONFIG_NAME: ${SPRING_CONFIG_NAME:-application}
+      SPRING_CONFIG_LOCATION: ${SPRING_CONFIG_LOCATION:-classpath:/application.yml}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-JWT_SECRET_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mmebot-net
+
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: mmebot-db
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mmebot-net
+
+  redis:
+    image: redis:7.4.0
+    container_name: mmebot-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mmebot-net
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  mmebot-net:
+    driver: bridge
