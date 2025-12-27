@@ -245,7 +245,7 @@ class AuthServiceTest {
         byte[] emailHash = new byte[]{9, 9};
         when(tokenHashService.hash("newuser@email.com")).thenReturn(emailHash);
         EncryptionContext userContext = EncryptionContext.builder().id(30L).aadHash(emailHash).build();
-        when(encryptionContextFactory.createContext(argThat(bytes -> Arrays.equals(bytes, emailHash))))
+        when(encryptionContextFactory.createContext((byte[]) argThat(bytes -> Arrays.equals((byte[]) bytes, emailHash))))
                 .thenReturn(userContext);
         EmailVerification verified = EmailVerification.builder()
                 .id(10L)
@@ -306,7 +306,7 @@ class AuthServiceTest {
         when(passwordEncoder.encode("pw")).thenReturn("encoded");
         byte[] emailHash = new byte[]{1};
         when(tokenHashService.hash("user@example.com")).thenReturn(emailHash);
-        when(encryptionContextFactory.createContext(argThat(bytes -> Arrays.equals(bytes, emailHash)))).thenReturn(
+        when(encryptionContextFactory.createContext((byte[]) argThat(bytes -> Arrays.equals((byte[]) bytes, emailHash)))).thenReturn(
                 EncryptionContext.builder().id(4L).aadHash(emailHash).build());
         EmailVerification verified = EmailVerification.builder()
                 .id(2L)

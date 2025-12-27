@@ -28,10 +28,10 @@ public class DiaryController {
         return diaryService.createDiary(request);
     }
 
-    @GetMapping("/{diaryId}")
-    public DiaryDetail getDiary(@PathVariable Long diaryId) {
-        return diaryService.getDiary(diaryId);
-    }
+//    @GetMapping("/{diaryId}")
+//    public DiaryDetail getDiary(@PathVariable Long diaryId) {
+//        return diaryService.getDiary(diaryId);
+//    }
 
 //    @GetMapping
 //    public List<DiaryResponse> getDiaries(@RequestParam("userId") @NotNull Long userId) {

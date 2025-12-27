@@ -11,15 +11,15 @@ public class GoogleAuthController {
 
     private final ProviderTokenService providerTokenService;
 
-    @GetMapping("/token")
-    public void exchangeToken(@RequestParam("code") String code) {
-        providerTokenService.storeGoogleAuthorizationCode(code);
-    }
-
-    @PostMapping("/refresh-token")
-    public void googleCallback() {
-        providerTokenService.refreshAccessToken();
-    }
+//    @GetMapping("/token")
+//    public void exchangeToken(@RequestParam("code") String code) {
+//        providerTokenService.storeGoogleAuthorizationCode(code);
+//    }
+//
+//    @PostMapping("/refresh-token")
+//    public void googleCallback() {
+//        providerTokenService.refreshAccessToken();
+//    }
 
 
 }

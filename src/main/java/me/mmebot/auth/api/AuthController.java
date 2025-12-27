@@ -46,49 +46,49 @@ public class AuthController {
         this.jwtProperties = jwtProperties;
     }
 
-    @PostMapping("/sign-in")
-    public SignInResponse signIn(@Valid @RequestBody SignInRequest request,
-                                 HttpServletRequest httpRequest,
-                                 HttpServletResponse httpResponse) {
-        SignInResult result = authService.signIn(request.email(), request.passwd(),
-                resolveClientMetadata(httpRequest));
-        writeAccessTokenCookie(httpResponse, result.accessToken());
-        return new SignInResponse(result.userId(), result.botId(), result.nickname(),
-                result.accessToken(), result.refreshToken());
-    }
-
-    @PostMapping("/sign-up")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void signUp(@Valid @RequestBody SignUpRequest request) {
-        authService.signUp(new SignUpCommand(
-                request.email(),
-                request.passwd(),
-                request.nickname(),
-                request.emailVerificationId()
-        ));
-    }
-
-    @PostMapping("/email-verification/send")
-    public SendEmailVerificationResponse sendEmailVerification(@Valid @RequestBody SendEmailVerificationRequest request) {
-        SendEmailVerificationResult result = emailVerificationService.send(request.email());
-        return new SendEmailVerificationResponse(result.emailVerificationId(), result.code());
-    }
-
-    @PostMapping("/email-verification/check")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void checkEmailVerification(@Valid @RequestBody CheckEmailVerificationRequest request) {
-        emailVerificationService.check(request.emailVerificationId(), request.code());
-    }
-
-    @PostMapping("/token-reissue")
-    public TokenReissueResponse reissueToken(@Valid @RequestBody TokenReissueRequest request,
-                                             HttpServletRequest httpRequest,
-                                             HttpServletResponse httpResponse) {
-        TokenPair tokens = authService.reissue(request.userId(), request.refreshToken(),
-                resolveClientMetadata(httpRequest));
-        writeAccessTokenCookie(httpResponse, tokens.accessToken());
-        return new TokenReissueResponse(tokens.accessToken(), tokens.refreshToken());
-    }
+//    @PostMapping("/sign-in")
+//    public SignInResponse signIn(@Valid @RequestBody SignInRequest request,
+//                                 HttpServletRequest httpRequest,
+//                                 HttpServletResponse httpResponse) {
+//        SignInResult result = authService.signIn(request.email(), request.passwd(),
+//                resolveClientMetadata(httpRequest));
+//        writeAccessTokenCookie(httpResponse, result.accessToken());
+//        return new SignInResponse(result.userId(), result.botId(), result.nickname(),
+//                result.accessToken(), result.refreshToken());
+//    }
+//
+//    @PostMapping("/sign-up")
+//    @ResponseStatus(HttpStatus.NO_CONTENT)
+//    public void signUp(@Valid @RequestBody SignUpRequest request) {
+//        authService.signUp(new SignUpCommand(
+//                request.email(),
+//                request.passwd(),
+//                request.nickname(),
+//                request.emailVerificationId()
+//        ));
+//    }
+//
+//    @PostMapping("/email-verification/send")
+//    public SendEmailVerificationResponse sendEmailVerification(@Valid @RequestBody SendEmailVerificationRequest request) {
+//        SendEmailVerificationResult result = emailVerificationService.send(request.email());
+//        return new SendEmailVerificationResponse(result.emailVerificationId(), result.code());
+//    }
+//
+//    @PostMapping("/email-verification/check")
+//    @ResponseStatus(HttpStatus.NO_CONTENT)
+//    public void checkEmailVerification(@Valid @RequestBody CheckEmailVerificationRequest request) {
+//        emailVerificationService.check(request.emailVerificationId(), request.code());
+//    }
+//
+//    @PostMapping("/token-reissue")
+//    public TokenReissueResponse reissueToken(@Valid @RequestBody TokenReissueRequest request,
+//                                             HttpServletRequest httpRequest,
+//                                             HttpServletResponse httpResponse) {
+//        TokenPair tokens = authService.reissue(request.userId(), request.refreshToken(),
+//                resolveClientMetadata(httpRequest));
+//        writeAccessTokenCookie(httpResponse, tokens.accessToken());
+//        return new TokenReissueResponse(tokens.accessToken(), tokens.refreshToken());
+//    }
 
     private void writeAccessTokenCookie(HttpServletResponse response, String accessToken) {
         ResponseCookie cookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, accessToken)
