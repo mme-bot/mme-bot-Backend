@@ -36,6 +36,6 @@ public class DiaryChunkEmbedding {
     private DiaryChunk diaryChunk;
 
     @Convert(converter = VectorFloatArrayConverter.class)
-    @Column(nullable = false, columnDefinition = "vector(1536)")
+    @Column(nullable = false, columnDefinition = "mmebot.vector(1536)")
     private float[] embedding;
 }
