@@ -258,11 +258,11 @@ class AuthServiceTest {
             User pending = invocation.getArgument(0);
             return User.builder()
                     .id(100L)
-                    .email(pending.getEmail())
+                    .emailCipher(pending.getEmailCipher())
                     .password(pending.getPassword())
                     .nickname(pending.getNickname())
                     .sns(pending.isSns())
-                    .encryptionContext(pending.getEncryptionContext())
+                    .emailEncryptionContext(pending.getEmailEncryptionContext())
                     .build();
         });
         when(roleRepository.existsByUserIdAndRoleName(100L, RoleName.ROLE_USER)).thenReturn(false);
@@ -273,10 +273,10 @@ class AuthServiceTest {
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(userCaptor.capture());
         User saved = userCaptor.getValue();
-        assertThat(saved.getEmail()).isEqualTo("newuser@email.com");
+        assertThat(saved.getEmailCipher()).isEqualTo("newuser@email.com");
         assertThat(saved.getPassword()).isEqualTo("encoded");
         assertThat(saved.getNickname()).isEqualTo("Nick");
-        assertThat(saved.getEncryptionContext()).isEqualTo(userContext);
+        assertThat(saved.getEmailEncryptionContext()).isEqualTo(userContext);
 
         ArgumentCaptor<Role> roleCaptor = ArgumentCaptor.forClass(Role.class);
         verify(roleRepository).save(roleCaptor.capture());
@@ -316,7 +316,7 @@ class AuthServiceTest {
                 .build();
         when(emailVerificationService.requireVerified(2L, "user@example.com")).thenReturn(verified);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> buildUser(77L,
-                invocation.<User>getArgument(0).getEmail(),
+                invocation.<User>getArgument(0).getEmailCipher(),
                 invocation.<User>getArgument(0).getPassword(),
                 null));
         when(roleRepository.existsByUserIdAndRoleName(77L, RoleName.ROLE_USER)).thenReturn(true);
@@ -554,11 +554,11 @@ class AuthServiceTest {
     private User buildUser(Long id, String email, String password, OffsetDateTime deletedAt) {
         return User.builder()
                 .id(id)
-                .email(email)
+                .emailCipher(email)
                 .password(password)
                 .nickname("Tester")
                 .sns(false)
-                .encryptionContext(EncryptionContext.builder().id(1L).build())
+                .emailEncryptionContext(EncryptionContext.builder().id(1L).build())
                 .deletedAt(deletedAt)
                 .build();
     }
