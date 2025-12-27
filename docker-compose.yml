@@ -16,8 +16,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-in8282}
       SPRING_CONFIG_NAME: ${SPRING_CONFIG_NAME:-application}
       SPRING_CONFIG_LOCATION: ${SPRING_CONFIG_LOCATION:-classpath:/application.yml}
-      SERVER_ADDRESS: ${SERVER_ADDRESS:-0.0.0.0}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-JWT_SECRET_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
     depends_on:
       db:
         condition: service_healthy
