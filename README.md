@@ -72,8 +72,8 @@ docker compose up --build
 
 ## API 문서
 현재 배포 상태이므로 로컬이 아닌 배포 주소를 활용합니다.
-- Swagger UI: [http://mmebot.me:5000/swagger-ui](http://mmebot.me:5000/swagger-ui)
-- OpenAPI JSON: [http://mmebot.me:5000/api/v1/api-docs](http://mmebot.me:5000/api/v1/api-docs)
+- Swagger UI: [http://mmebot.me:8000/swagger-ui](http://mmebot.me:5000/swagger-ui)
+- OpenAPI JSON: [http://mmebot.me:8000/api/v1/api-docs](http://mmebot.me:5000/api/v1/api-docs)
 - `OpenApiConfiguration`에서 공통 에러 응답, 보안 스킴, 서버 정보가 자동 등록됩니다.
 
 ## 테스트
