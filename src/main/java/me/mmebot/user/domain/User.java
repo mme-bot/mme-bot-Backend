@@ -81,7 +81,8 @@ public class User {
         return deletedAt != null;
     }
 
-    public User(String nickname) {
+    public User(String nickname, Bot bot) {
+        this.bot = bot;
         this.createdAt = OffsetDateTime.now();
         this.sns = false;
         this.nickname = nickname;

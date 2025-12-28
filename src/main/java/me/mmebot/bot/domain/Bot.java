@@ -53,4 +53,10 @@ public class Bot {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    public Bot(String name, String persona, String script) {
+        this.name = name;
+        this.persona = persona;
+        this.script = script;
+    }
 }
