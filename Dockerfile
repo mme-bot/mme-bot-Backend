@@ -26,4 +26,4 @@ COPY --from=builder /workspace/app.jar app.jar
 
 EXPOSE 8000
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar", "--spring.profiles.active=dev"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar", "--spring.profiles.active=prod"]
