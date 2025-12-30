@@ -7,6 +7,7 @@ import java.util.List;
 
 @ConfigurationProperties(prefix = "external")
 public record ExternalServiceProperties(
+        String publicBaseUrl,
         List<String> allowOriginUrls,
         @DefaultValue("") String apiGateway,
         @DefaultValue("") String fileServer

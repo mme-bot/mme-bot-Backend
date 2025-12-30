@@ -41,13 +41,14 @@ public class OpenApiConfiguration {
     @Bean
     public OpenAPI mmebotOpenApi(ApiProp apiProp,
                                  ExternalServiceProperties external,
-                                 JwtProperties jwtProperties,
-                                 Environment environment) {
+                                 JwtProperties jwtProperties
+    ) {
         String basePath = apiProp.basePath();
         if (StringUtils.isBlank(basePath)) {
             basePath = "/api/v1";
         }
-        List<Server> servers = buildServers(external, environment);
+//        List<Server> servers = buildServers(external, environment);
+        List<Server> servers = buildServers(external);
 
         SecurityScheme bearerScheme = new SecurityScheme()
                 .type(SecurityScheme.Type.HTTP)
@@ -159,20 +160,38 @@ public class OpenApiConfiguration {
                 .content(content);
     }
 
-    private List<Server> buildServers(ExternalServiceProperties external,
-                                      Environment environment) {
+    private List<Server> buildServers(ExternalServiceProperties external) {
         List<Server> servers = new ArrayList<>();
-        String address = environment.getProperty("server.address", "localhost");
-        String port = environment.getProperty("server.port", "8080");
-        String localUrl = "http://" + address + ":" + port;
-        servers.add(new Server().url(localUrl).description("Local development"));
 
-        String apiGateway = external.apiGateway();
-        if (StringUtils.isNotBlank(apiGateway)) {
-            servers.add(new Server().url(joinUrl(apiGateway, "")).description("API gateway"));
+        if (StringUtils.isNotBlank(external.publicBaseUrl())) {
+            servers.add(new Server()
+                    .url(external.publicBaseUrl())
+                    .description("Public API"));
         }
+
+        if (StringUtils.isNotBlank(external.apiGateway())) {
+            servers.add(new Server()
+                    .url(external.apiGateway())
+                    .description("API Gateway"));
+        }
+
         return servers;
     }
+
+//    private List<Server> buildServers(ExternalServiceProperties external,
+//                                      Environment environment) {
+//        List<Server> servers = new ArrayList<>();
+//        String address = environment.getProperty("server.address", "localhost");
+//        String port = environment.getProperty("server.port", "8080");
+//        String localUrl = address + ":" + port;
+//        servers.add(new Server().url(localUrl).description("URL"));
+//
+//        String apiGateway = external.apiGateway();
+//        if (StringUtils.isNotBlank(apiGateway)) {
+//            servers.add(new Server().url(joinUrl(apiGateway, "")).description("API gateway"));
+//        }
+//        return servers;
+//    }
 
     private String joinUrl(String root, String path) {
         String trimmedRoot = trimTrailingSlash(root);
