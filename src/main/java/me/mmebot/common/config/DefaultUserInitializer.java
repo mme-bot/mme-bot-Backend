@@ -103,13 +103,7 @@ public class DefaultUserInitializer implements CommandLineRunner {
                 """
         );
         List<Bot> botList = botRepository.findAll();
-        Bot chad = botList.getFirst();
-        if (botList.isEmpty()) {
-            botRepository.save(bot);
-            chad = bot;
-        }
-
-        Bot finalChad = chad;
+        Bot chad = botList.isEmpty() ? botRepository.save(bot) : botList.getFirst();
         userRepository.findByEmailCipher(defaultEmail).ifPresentOrElse(
                 _ -> {
                     // 이미 존재하면 로그만 출력
@@ -119,7 +113,7 @@ public class DefaultUserInitializer implements CommandLineRunner {
                     EncryptionContext context = encryptionContextFactory.createContext(defaultEmail.substring(0, 3).getBytes(StandardCharsets.UTF_8));
                     // 기본 유저 생성
                     User admin = User.builder()
-                            .bot(finalChad)
+                            .bot(chad)
                             .emailCipher(defaultEmail)
                             .password(passwordEncoder.encode(defaultPassword))
                             .nickname("admin")
