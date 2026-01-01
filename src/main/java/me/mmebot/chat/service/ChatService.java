@@ -133,13 +133,13 @@ public class ChatService {
         String diaryShortEnc = chatSession.getDiary().getSummaryShort();
         String diaryShort = aesGcmCryptoService.decryptWithAad(diaryShortEnc, user.getId().toString());
 
-//        String response = openAiService.sendChatMessage(
-////                user.getBot().getScript(),
-//                diaryShort,
-//                chatMsgList,
-//                req.msg());
+        String response = openAiService.sendChatMessage(
+//                user.getBot().getScript(),
+                diaryShort,
+                chatMsgList,
+                req.msg());
 
-        String response = "테스트";
+//        String response = "테스트";
         // 암호화 후, ai 와의 질답 메시지 각각 저장
         EncryptionContext context = encryptionContextFactory.createContext(user.getId().toString());
         String reqMsgEnc = aesGcmCryptoService.encryptWithAad(req.msg(), context.getAadHash());

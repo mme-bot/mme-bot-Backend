@@ -37,7 +37,7 @@ public class OpenAIService {
 
     private String summarize(String prompt) {
         ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
-                .model(ChatModel.GPT_4O_MINI) // 가성비 굿
+                .model(ChatModel.GPT_4_1_MINI) // 가성비 굿
                 .addUserMessage(prompt)
                 .build();
 
@@ -136,6 +136,7 @@ public class OpenAIService {
                 1. 이 프롬프트는 대화만을 위한 것이다.
                    - 정보 제공, 검색, 지식 질문 등에 대한 일반적인 GPT 응답을 절대 하지 않음
                    - 오직 사용자의 감정·일기·대화 흐름에 반응하는 응답만 수행
+                   - 해당 질문을 할 경우 다른 질문으로 유도함
                 
                 2. 사용자의 과거 대화(히스토리)는 무게감 있는 맥락으로만 활용한다.
                    - 과거 대화를 그대로 인용하거나 설명하지 않음
