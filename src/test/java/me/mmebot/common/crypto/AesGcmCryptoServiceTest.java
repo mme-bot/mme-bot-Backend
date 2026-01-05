@@ -32,7 +32,7 @@ class AesGcmCryptoServiceTest {
     }
 
     @Test
-    void encryptWithStringAad_thenDecrypt_recoversPlainText() {
+    void 문자열_AAD로_암복호하면_원문을_복원() {
         String plainText = "mmebot-secret";
         String aad = "user-42";
 
@@ -44,7 +44,7 @@ class AesGcmCryptoServiceTest {
     }
 
     @Test
-    void encryptWithByteAad_thenDecryptWithByteAad_recoversPlainText() {
+    void 바이트_AAD로_암복호하면_원문을_복원() {
         String plainText = "diary-content";
         byte[] aadBytes = "aad-seed".getBytes(StandardCharsets.UTF_8);
 
@@ -55,7 +55,7 @@ class AesGcmCryptoServiceTest {
     }
 
     @Test
-    void decryptWithDifferentAad_throwsException() {
+    void 다른_AAD로_복호화하면_예외() {
         String cipherText = service.encryptWithAad("payload", "aad-A");
 
         assertThatThrownBy(() -> service.decryptWithAad(cipherText, "aad-B"))

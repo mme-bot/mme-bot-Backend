@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doAnswer;
@@ -69,7 +70,7 @@ class ChatServiceTest {
     private ChatService chatService;
 
     @Test
-    void createChatSession_withDiaryFromToday_createsSession() {
+    void 오늘_일기로_채팅세션을_생성() {
         Long userId = 21L;
         Long diaryId = 31L;
         User user = buildUser(userId);
@@ -93,7 +94,7 @@ class ChatServiceTest {
     }
 
     @Test
-    void createChatSession_whenSessionAlreadyExists_throws() {
+    void 동일_일기세션이_이미_존재하면_생성을_차단() {
         Long userId = 99L;
         Long diaryId = 551L;
         User user = buildUser(userId);
@@ -115,7 +116,7 @@ class ChatServiceTest {
     }
 
     @Test
-    void createChatMessage_withValidRequest_encryptsAndPersistsMessages() {
+    void 채팅메시지_작성시_암호화하여_사용자와_봇메시지를_저장() {
         Long userId = 12L;
         Long chatSessionId = 44L;
         Long replyMsgId = 101L;
@@ -147,6 +148,7 @@ class ChatServiceTest {
         when(chatMessageRepository.findAllByReplyMsgId(replyMsgId)).thenReturn(List.of());
         when(chatMessageRepository.findAllByChatSessionWithEnc(chatSession)).thenReturn(new java.util.ArrayList<>(List.of(replyMsg)));
         when(aesGcmCryptoService.decryptWithAad("summary-enc", userId.toString())).thenReturn("summary");
+        when(openAIService.sendChatMessage(eq("summary"), anyList(), eq("message"))).thenReturn("테스트");
         when(encryptionContextFactory.createContext(userId.toString())).thenReturn(userEnc);
         when(aesGcmCryptoService.encryptWithAad(eq("message"), same(userEnc.getAadHash()))).thenReturn("enc-user");
         when(aesGcmCryptoService.encryptWithAad(eq("테스트"), same(userEnc.getAadHash()))).thenReturn("enc-ai");
@@ -170,7 +172,7 @@ class ChatServiceTest {
     }
 
     @Test
-    void createChatMessage_whenReplyAlreadyExists_throws() {
+    void 동일_답장메시지가_이미_존재하면_예외() {
         Long userId = 1L;
         Long sessionId = 2L;
         Long replyMsgId = 10L;
@@ -204,7 +206,7 @@ class ChatServiceTest {
     }
 
     @Test
-    void createFirstChat_initializesSessionWithOpenAiResponse() {
+    void 첫_채팅시_오픈ai_응답으로_세션을_초기화() {
         Long userId = 5L;
         Long sessionId = 9L;
         User user = buildUser(userId);
@@ -241,7 +243,7 @@ class ChatServiceTest {
     }
 
     @Test
-    void getChatMsgs_returnsSortedDecryptedMessages() {
+    void 채팅_메시지_목록을_정렬된_복호화결과로_반환() {
         Long sessionId = 888L;
         User user = buildUser(321L);
         Diary diary = buildDiary(55L, user, LocalDate.now(), "enc");
