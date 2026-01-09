@@ -33,7 +33,7 @@ public class DiaryService {
     public CreateDiaryRes createDiary(CreateDiaryRequest request) {
         log.info("Creating diary for user {} on {}", request.userId(), request.date());
         User user = userService.getActiveUser(request.userId());
-        ensureUniqueDiaryDate(user.getId(), request.date(), null);
+        ensureUniqueDiaryDate(user.getId(), request.date());
 
         String summaryShort = openAiService.diarySummarizeShort(request.content());
 
@@ -103,9 +103,8 @@ public class DiaryService {
                 });
     }
 
-    private void ensureUniqueDiaryDate(Long userId, LocalDate date, Long currentDiaryId) {
+    private void ensureUniqueDiaryDate(Long userId, LocalDate date) {
         diaryRepository.findByUserIdAndDateAndDeletedAtIsNull(userId, date)
-                .filter(existing -> currentDiaryId == null || !existing.getId().equals(currentDiaryId))
                 .ifPresent(existing -> {
                     log.warn("Diary {} already exists for user {} on {}", existing.getId(), userId, date);
                     throw DiaryException.diaryAlreadyExists(date);
