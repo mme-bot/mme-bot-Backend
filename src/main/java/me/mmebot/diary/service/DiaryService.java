@@ -36,7 +36,6 @@ public class DiaryService {
         ensureUniqueDiaryDate(user.getId(), request.date(), null);
 
         String summaryShort = openAiService.diarySummarizeShort(request.content());
-        System.out.println(summaryShort);
 
         String aadStr = user.getId().toString();
         String summaryShortEnc = aesGcmCryptoService.encryptWithAad(summaryShort, aadStr);
@@ -51,9 +50,14 @@ public class DiaryService {
                 .encryptionContext(encryptionContextFactory.createContext(aadStr))
                 .build();
 
-        Diary saved = diaryRepository.save(diary);
+        Diary saved = saveDiary(diary);
         log.info("Diary {} created for user {} on {}", saved.getId(), saved.getUser().getId(), saved.getDate());
         return new CreateDiaryRes(diary.getId());
+    }
+
+    @Transactional
+    protected Diary saveDiary(Diary diary) {
+        return diaryRepository.save(diary);
     }
 
     @Transactional(readOnly = true)
