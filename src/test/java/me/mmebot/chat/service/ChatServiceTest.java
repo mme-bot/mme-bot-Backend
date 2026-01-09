@@ -163,8 +163,10 @@ class ChatServiceTest {
         assertThat(result.getFirst().chatMsgId()).isEqualTo(301L);
         assertThat(result.getFirst().seq()).isEqualTo(2);
         assertThat(result.getFirst().msg()).isEqualTo("message");
+        assertThat(result.getFirst().role()).isEqualTo(ChatMessageRole.USER);
         assertThat(result.get(1).chatMsgId()).isEqualTo(302L);
         assertThat(result.get(1).msg()).isEqualTo("테스트");
+        assertThat(result.get(1).role()).isEqualTo(ChatMessageRole.SYSTEM);
         verify(chatMessageRepository, times(2)).save(any(ChatMessage.class));
     }
 
@@ -197,6 +199,46 @@ class ChatServiceTest {
         when(chatSessionRepository.findWithDiaryAndUser(sessionId)).thenReturn(Optional.of(chatSession));
         when(chatMessageRepository.findById(replyMsgId)).thenReturn(Optional.of(replyMsg));
         when(chatMessageRepository.findAllByReplyMsgId(replyMsgId)).thenReturn(List.of(replyMsg));
+
+        assertThatThrownBy(() -> chatService.createChatMessage(sessionId, new CreateChatMsgReq(userId, replyMsgId, "hello")))
+                .isInstanceOf(ChatException.class);
+    }
+
+    @Test
+    void 사용자_메시지가_20개_이상이면_예외() {
+        Long userId = 1L;
+        Long sessionId = 2L;
+        Long replyMsgId = 10L;
+        User user = buildUser(userId);
+        Diary diary = buildDiary(3L, user, LocalDate.now(), "enc");
+        ChatSession chatSession = ChatSession.builder()
+                .id(sessionId)
+                .diary(diary)
+                .bot(user.getBot())
+                .status(ChatSessionStatus.ACTIVE)
+                .sendCount(0)
+                .encryptionContext(encryptionContext("session", 3))
+                .build();
+        ChatMessage replyMsg = ChatMessage.builder()
+                .id(replyMsgId)
+                .chatSession(chatSession)
+                .seq(1)
+                .role(ChatMessageRole.SYSTEM)
+                .content("reply")
+                .encryptionContext(encryptionContext("reply", 4))
+                .createdAt(OffsetDateTime.now())
+                .build();
+        List<ChatMessage> chatMessages = new java.util.ArrayList<>();
+        chatMessages.add(replyMsg);
+        for (int i = 0; i < 20; i++) {
+            chatMessages.add(buildChatMessage(chatSession, i + 2, ChatMessageRole.USER));
+        }
+
+        when(userService.getActiveUser(userId)).thenReturn(user);
+        when(chatSessionRepository.findWithDiaryAndUser(sessionId)).thenReturn(Optional.of(chatSession));
+        when(chatMessageRepository.findById(replyMsgId)).thenReturn(Optional.of(replyMsg));
+        when(chatMessageRepository.findAllByReplyMsgId(replyMsgId)).thenReturn(List.of());
+        when(chatMessageRepository.findAllByChatSessionWithEnc(chatSession)).thenReturn(chatMessages);
 
         assertThatThrownBy(() -> chatService.createChatMessage(sessionId, new CreateChatMsgReq(userId, replyMsgId, "hello")))
                 .isInstanceOf(ChatException.class);
@@ -311,6 +353,18 @@ class ChatServiceTest {
                 .summaryShort(summaryShort)
                 .date(date)
                 .encryptionContext(encryptionContext("diary" + id, id.intValue()))
+                .build();
+    }
+
+    private ChatMessage buildChatMessage(ChatSession chatSession, int seq, ChatMessageRole role) {
+        return ChatMessage.builder()
+                .id((long) seq)
+                .chatSession(chatSession)
+                .seq(seq)
+                .role(role)
+                .content("enc-" + seq)
+                .encryptionContext(encryptionContext("msg" + seq, seq))
+                .createdAt(OffsetDateTime.now())
                 .build();
     }
 

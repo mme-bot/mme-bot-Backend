@@ -72,6 +72,10 @@ public class ChatMessage {
         this.encryptionContext = encryptionContext;
     }
 
+    public boolean isUserMsg() {
+        return role == ChatMessageRole.USER;
+    }
+
     public void updateReplyMsg(ChatMessage replyMsg) {
         this.replyMsg = replyMsg;
     }

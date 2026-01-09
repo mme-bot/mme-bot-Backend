@@ -85,6 +85,14 @@ public class ChatException extends ApiException {
         );
     }
 
+    public static ChatException chatSessionUserMessageLimitExceeded(Long chatSessionId, int limit) {
+        return new ChatException(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "Chat session %d exceeded the user message limit of %d".formatted(chatSessionId, limit),
+                "chat.session.user_message_limit_exceeded"
+        );
+    }
+
     public static ChatException chatSessionUserMismatch(Long chatSessionId, Long requesterUserId, Long ownerUserId) {
         return new ChatException(
                 HttpStatus.FORBIDDEN,

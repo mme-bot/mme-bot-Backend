@@ -122,6 +122,12 @@ public class ChatService {
         if (chatMsgList.isEmpty()) {
             throw ChatException.chatSessionHasNoMessages(chatSession.getId());
         }
+        long userMsgCount = chatMsgList.stream()
+                .filter(ChatMessage::isUserMsg)
+                .count();
+        if (userMsgCount >= 20) {
+            throw ChatException.chatSessionUserMessageLimitExceeded(chatSession.getId(), 20);
+        }
         // seq asc 순으로 정렬
         chatMsgList.sort(Comparator.comparing(ChatMessage::getSeq));
 
@@ -149,8 +155,22 @@ public class ChatService {
         String reqMsgEnc = aesGcmCryptoService.encryptWithAad(req.msg(), context.getAadHash());
         String resMsgEnc = aesGcmCryptoService.encryptWithAad(response, context.getAadHash());
 
-        ChatMessage reqMsg = getChatMessage(reqMsgEnc, chatSession, replyMsg.getSeq() + 1, context, replyMsg);
-        ChatMessage resMsg = getChatMessage(resMsgEnc, chatSession, replyMsg.getSeq() + 2, context, reqMsg);
+        ChatMessage reqMsg = getChatMessage(
+                reqMsgEnc,
+                chatSession,
+                replyMsg.getSeq() + 1,
+                ChatMessageRole.USER,
+                context,
+                replyMsg
+        );
+        ChatMessage resMsg = getChatMessage(
+                resMsgEnc,
+                chatSession,
+                replyMsg.getSeq() + 2,
+                ChatMessageRole.SYSTEM,
+                context,
+                reqMsg
+        );
 
         saveChats(reqMsg, resMsg);
 
@@ -174,21 +194,18 @@ public class ChatService {
         return chatMsgRepository.save(chatMsg);
     }
 
-    private ChatMessage getChatMessage(String msg, ChatSession chatSession, int msgSeq, EncryptionContext context) {
+    private ChatMessage getChatMessage(
+            String msg,
+            ChatSession chatSession,
+            int msgSeq,
+            ChatMessageRole role,
+            EncryptionContext context,
+            ChatMessage replyMsg
+    ) {
         return new ChatMessage(
                 chatSession,
                 msgSeq,
-                ChatMessageRole.SYSTEM,
-                msg,
-                context
-        );
-    }
-
-    private ChatMessage getChatMessage(String msg, ChatSession chatSession, int msgSeq, EncryptionContext context, ChatMessage replyMsg) {
-        return new ChatMessage(
-                chatSession,
-                msgSeq,
-                ChatMessageRole.SYSTEM,
+                role,
                 msg,
                 context,
                 replyMsg
@@ -234,7 +251,9 @@ public class ChatService {
                 resMsgEnc,
                 chatSession,
                 1,
-                msgEncContext
+                ChatMessageRole.SYSTEM,
+                msgEncContext,
+                null
         );
         saveChatMessage(chatMessage);
         return new StartChatRes(chatMessage.getId(), resMsg);
