@@ -226,7 +226,7 @@ class ChatServiceTest {
         when(aesGcmCryptoService.decryptWithAad("short-enc", diaryEnc.getAadHash())).thenReturn("plain");
         when(openAIService.sendFirstChatMsg("persona", "script", diary.getEmotion(), "plain")).thenReturn("first-msg");
         when(encryptionContextFactory.createContext(userId.toString())).thenReturn(msgEnc);
-        when(aesGcmCryptoService.encryptWithAad(eq("resMsg"), same(msgEnc.getAadHash()))).thenReturn("first-msg-enc");
+        when(aesGcmCryptoService.encryptWithAad(eq("first-msg"), same(msgEnc.getAadHash()))).thenReturn("first-msg-enc");
         when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
             ChatMessage message = invocation.getArgument(0);
             ReflectionTestUtils.setField(message, "id", 901L);
