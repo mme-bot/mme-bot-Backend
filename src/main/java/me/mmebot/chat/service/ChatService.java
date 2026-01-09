@@ -228,7 +228,7 @@ public class ChatService {
                 diary.getEmotion(),
                 summaryShort);
         EncryptionContext msgEncContext = encryptionContextFactory.createContext(user.getId().toString());
-        String resMsgEnc = aesGcmCryptoService.encryptWithAad("resMsg", msgEncContext.getAadHash());
+        String resMsgEnc = aesGcmCryptoService.encryptWithAad(resMsg, msgEncContext.getAadHash());
 
         ChatMessage chatMessage = getChatMessage(
                 resMsgEnc,
