@@ -20,4 +20,10 @@ public class UserException extends ApiException {
                 "User %d is deleted".formatted(userId),
                 "diary.user_deleted");
     }
+
+    public static UserException botNotFound(Long botId) {
+        return new UserException(HttpStatus.NOT_FOUND,
+                "Bot %d not found".formatted(botId),
+                "diary.bot_not_found");
+    }
 }

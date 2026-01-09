@@ -4,6 +4,9 @@ public class TestUser {
     public record TestUserRes(Long userId, String nickname) {
     }
 
-    public record TestUserReq(String nickname) {
+    public record TestUserReq(
+            Long botId,
+            String nickname
+    ) {
     }
 }
