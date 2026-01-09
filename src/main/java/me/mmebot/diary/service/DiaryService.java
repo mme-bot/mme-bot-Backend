@@ -51,7 +51,6 @@ public class DiaryService {
                 .build();
 
         Diary saved = saveDiary(diary);
-        log.info("Diary {} created for user {} on {}", saved.getId(), saved.getUser().getId(), saved.getDate());
         return new CreateDiaryRes(diary.getId());
     }
 
