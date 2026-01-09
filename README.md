@@ -2,6 +2,12 @@
 
 MME Bot 백엔드는 일기 기반 감정 케어 봇을 위한 Spring Boot REST API입니다. 사용자 인증, 일기/채팅 관리, 암호화 키 관리, 이메일 인증, OpenAI 연동을 단일 서버에서 제공하며 React 웹 애플리케이션과 분리된 백엔드로 동작합니다.
 
+## 데모 영상
+
+https://github.com/user-attachments/assets/e5136d75-1ded-452d-a72e-eb8fe3833e55
+
+
+
 ## Swagger API 명세서
 [http://mmebot.me:8000/swagger-ui/index.html](http://mmebot.me:8000/swagger-ui/index.html)
 
