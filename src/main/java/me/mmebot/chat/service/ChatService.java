@@ -174,9 +174,20 @@ public class ChatService {
 
         saveChats(reqMsg, resMsg);
 
+
         return List.of(
-                new CreateChatMsgRes(reqMsg.getId(), reqMsg.getSeq(), reqMsg.getRole(), req.msg()),
-                new CreateChatMsgRes(resMsg.getId(), resMsg.getSeq(), resMsg.getRole(), response)
+                new CreateChatMsgRes(
+                        reqMsg.getId(),
+                        reqMsg.getSeq(),
+                        reqMsg.getRole(),
+                        req.msg()
+                ),
+                new CreateChatMsgRes(
+                        resMsg.getId(),
+                        resMsg.getSeq(),
+                        resMsg.getRole(),
+                        renderMsgUserToNickname(response, user.getNickname())
+                )
         );
     }
 
@@ -184,6 +195,10 @@ public class ChatService {
     protected void saveChats(ChatMessage req, ChatMessage res) {
         chatMsgRepository.save(req);
         chatMsgRepository.save(res);
+    }
+
+    private String renderMsgUserToNickname(String msg, String nickname) {
+        return msg.replace("{user}", nickname);
     }
 
     private List<ChatMessage> getChatMessages(ChatSession chatSession) {
@@ -256,7 +271,7 @@ public class ChatService {
                 null
         );
         saveChatMessage(chatMessage);
-        return new StartChatRes(chatMessage.getId(), resMsg);
+        return new StartChatRes(chatMessage.getId(), renderMsgUserToNickname(resMsg, user.getNickname()));
     }
 
     /**
