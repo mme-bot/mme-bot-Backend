@@ -1,6 +1,7 @@
 package me.mmebot.chat.service;
 
 import lombok.RequiredArgsConstructor;
+import me.mmebot.bot.domain.Bot;
 import me.mmebot.chat.api.dto.ChatMsgRes.CreateChatMsgRes;
 import me.mmebot.chat.domain.ChatMessage;
 import me.mmebot.chat.domain.ChatSession;
@@ -130,11 +131,14 @@ public class ChatService {
          * ... ing
          */
 
-        String diaryShortEnc = chatSession.getDiary().getSummaryShort();
+        Diary diary = chatSession.getDiary();
+        String diaryShortEnc = diary.getSummaryShort();
         String diaryShort = aesGcmCryptoService.decryptWithAad(diaryShortEnc, user.getId().toString());
 
         String response = openAiService.sendChatMessage(
-//                user.getBot().getScript(),
+                user.getBot().getPersona(),
+                user.getBot().getScript(),
+                diary.getEmotion(),
                 diaryShort,
                 chatMsgList,
                 req.msg());
@@ -217,7 +221,12 @@ public class ChatService {
         EncryptionContext encryptionContext = diary.getEncryptionContext();
         String summaryShort = aesGcmCryptoService.decryptWithAad(summaryShortEnc, encryptionContext.getAadHash());
 
-        String resMsg = openAiService.sendFirstChatMsg(summaryShort);
+        Bot bot = user.getBot();
+        String resMsg = openAiService.sendFirstChatMsg(
+                bot.getPersona(),
+                bot.getScript(),
+                diary.getEmotion(),
+                summaryShort);
         EncryptionContext msgEncContext = encryptionContextFactory.createContext(user.getId().toString());
         String resMsgEnc = aesGcmCryptoService.encryptWithAad("resMsg", msgEncContext.getAadHash());
 
