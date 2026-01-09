@@ -10,6 +10,7 @@ public record CreateDiaryRequest(
         Long userId,
 
         @NotBlank
+        @Size(max = 500)
         String content,
 
         @NotBlank
