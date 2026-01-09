@@ -38,8 +38,6 @@ src/main/java/me/mmebot
 ## 필수 요구 사항
 1. JDK 25 이상 & Gradle Wrapper
 2. PostgreSQL 17 + `CREATE EXTENSION vector` (또는 `docker-compose.yml`의 pgvector 이미지)
-3. Redis 7.x (JWT access token 큐 저장)
-4. OpenAI API Key와 Gmail OAuth 자격(선택) – `OPENAI_API_KEY`, `google.*` 설정으로 연동
 
 ## 로컬 실행 방법
 1. PostgreSQL/Redis를 실행하고 `schema.sql`로 초기화하거나 `SPRING_PROFILES_ACTIVE=dev`로 내장 설정을 사용합니다.
@@ -57,7 +55,7 @@ src/main/java/me/mmebot
 ```bash
 docker compose up --build
 ```
-- `app`, `db(pgvector)`, `redis` 컨테이너가 함께 기동하며 `.env`에 포트/DB/JWT/AES/OpenAI/Gmail 값을 정의합니다.
+- `app`, `db(pgvector)` 컨테이너가 함께 기동하며 `.env`에 포트/DB/JWT/AES/OpenAI/Gmail 값을 정의합니다.
 - Compose는 DB 초기화와 Redis 준비 후 애플리케이션을 자동으로 시작합니다.
 
 ## 데이터베이스 준비
@@ -70,14 +68,12 @@ docker compose up --build
 - `ExternalServiceProperties`와 `ApiProp`을 통해 CORS 허용 도메인과 OpenAPI server 정보를 중앙에서 관리합니다.
 
 ## 인증 및 보안
-- `SecurityConfig`는 Stateless JWT 필터(`JwtAuthenticationFilter`)를 사용하고 `external.allow-origin-urls` 리스트만 `GET/POST/PUT/PATCH/OPTIONS` 요청을 허용합니다.
-- 비밀번호는 `BCryptPasswordEncoder`로 해시되며, JWT는 HS256 서명 후 A256GCM 암호화를 거쳐 발급됩니다.
-- Access Token은 HttpOnly+Secure 쿠키(`access_token`)로 반환하고, Refresh Token은 DB(`auth_token`)에 AES-GCM 컨텍스트와 함께 저장됩니다.
-- 이메일 인증은 6자리 코드, 5분 만료, 시간당 10회 제한을 적용하고 Gmail API 또는 No-op 발송기를 사용합니다.
+- 양방향 암호화 알고리즘으로 `AES256-GCM` 을 사용하고 aad 값으로 검증합니다.
+- .env 파일을 분리하여 OS 환경 변수로 주입합니다.
 
 ## API 문서
 - SpringDoc이 자동 스캔하며 `OpenApiConfiguration`이 공통 응답/보안 스키마를 추가합니다.
-- 실행 후 Swagger UI는 `http://localhost:8000/swagger-ui`, OpenAPI JSON은 `/api/v1/api-docs`에서 확인합니다.
+- 로컬 실행 후 Swagger UI는 `http://localhost:8000/swagger-ui`, OpenAPI JSON은 `/api/v1/api-docs`에서 확인합니다.
 
 ## 테스트
 ```bash
@@ -88,4 +84,3 @@ docker compose up --build
 ## 추가 참고 사항
 - `ChatService`는 일기 요약, 봇 페르소나, 기존 채팅 로그를 GPT-4.1-mini 모델에 전달하고 결과를 AES-GCM으로 저장합니다.
 - `KoreanTextAnalyzer`가 open-korean-text로 추출한 키워드를 `OpenAIService` 프롬프트에 활용합니다.
-- `ExternalServiceProperties`의 CORS 목록과 `MailConfiguration`(Gmail/Noop)을 적절히 조정하면 프론트엔드/이메일 시나리오를 쉽게 변경할 수 있습니다.
