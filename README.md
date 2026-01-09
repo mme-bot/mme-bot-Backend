@@ -1,87 +1,83 @@
 # MME Bot 백엔드
 
-MME Bot 백엔드는 Spring Boot 기반의 REST API 서버로, 사용자 인증, 일기/채팅 관리, 암호화 키 관리 등 봇 서비스의 코어 도메인을 제공합니다. 프론트엔드(React)와는 분리되어 있으며 JWT 기반의 인증 흐름과 pgvector 확장을 활용한 임베딩 저장을 지원합니다.
+MME Bot 백엔드는 일기 기반 감정 케어 봇을 위한 Spring Boot REST API입니다. 사용자 인증, 일기/채팅 관리, 암호화 키 관리, 이메일 인증, OpenAI 연동을 단일 서버에서 제공하며 React 웹 애플리케이션과 분리된 백엔드로 동작합니다.
+
+## Swagger API 명세서
+[http://mmebot.me:8000/swagger-ui/index.html](http://mmebot.me:8000/swagger-ui/index.html)
 
 ## 기술 스택
-- Java 25, Gradle 8 (Gradle Wrapper 포함)
-- Spring Boot 3.5 (Web, Data JPA, Security, Validation)
-- PostgreSQL 17 + pgvector 확장
-- springdoc-openapi 2.8 (Swagger UI 제공)
-- Lombok, Nimbus JOSE JWT
+- Java 25 + Gradle 8 Wrapper, Spring Boot 3.5 (Web, Data JPA, Security, Validation, Mail, Redis, AOP)
+- PostgreSQL 17 + pgvector, Redis 7.4, Docker Compose 지원
+- SpringDoc OpenAPI 2.8.x, Lombok, Nimbus JOSE JWT, Google Mail API, open-korean-text, OpenAI Java SDK 4.8.0
 
 ## 프로젝트 구조
 ```
 src/main/java/me/mmebot
-├─ auth        : 로그인/회원가입, 토큰, 이메일 인증 도메인
-├─ bot         : 봇 정보 및 이미지 관리
-├─ chat        : 채팅 세션 및 메시지 관리
-├─ core        : 암호화 키/컨텍스트, 공통 보안 로직
-├─ diary       : 일기 본문, 청크, 임베딩 관리(VectorFloatArrayConverter 사용)
-├─ user        : 회원 및 SNS 연동 정보
-├─ common      : 공통 설정, 예외, 변환기, 설정 프로퍼티
-└─ config      : Spring Security, OpenAPI 설정
+├─ auth        : 회원/토큰/이메일 인증, JWT(JWS+JWE), Redis 토큰 캐시
+├─ bot         : 봇 프로필 및 이미지 관리, 기본 조회 API
+├─ chat        : 일기 기반 채팅 세션/메시지, OpenAI 연동
+├─ core        : 암호화 키/컨텍스트, AES-GCM 유틸리티
+├─ diary       : 일기·청크·임베딩(VectorFloatArrayConverter) 관리
+├─ openai      : GPT 호출, 한국어 형태소 기반 요약
+├─ user        : 사용자·SNS 연동, 테스트용 API
+├─ common      : 설정, 예외, 암호화, 컨버터, 메일, Validator
+└─ config      : SecurityFilterChain, OpenAPI 커스터마이저
 ```
-- 엔티티 스키마는 `me.mmebot.<domain>.domain`, 리포지토리는 `me.mmebot.<domain>.repository`에 위치합니다.
-- DDL은 `src/main/resources/database/schema.sql`에 정리되어 있으며, pgvector `vector(1536)` 타입은 `float[]`로 변환됩니다.
+- 엔티티는 `me.mmebot.<domain>.domain`, 리포지토리는 `me.mmebot.<domain>.repository`에 배치되며 `DatabaseNames`가 스키마/테이블 상수를 제공합니다.
+- `DiaryChunkEmbedding`은 `VectorFloatArrayConverter`로 pgvector `vector(1536)` ↔ `float[]` 변환을 수행합니다.
+- 전체 테이블 정의는 `src/main/resources/database/schema.sql`에서 확인할 수 있습니다.
 
 ## 필수 요구 사항
-1. JDK 25 이상
-2. Docker & Docker Compose (선택: PostgreSQL/pgvector를 도커로 구동)
-3. 로컬 PostgreSQL 17 이상 또는 Docker Compose 기반의 db 서비스
-4. `JWT_SECRET_KEY` 등 민감정보는 `.env` 또는 환경 변수로 관리
+1. JDK 25 이상 & Gradle Wrapper
+2. PostgreSQL 17 + `CREATE EXTENSION vector` (또는 `docker-compose.yml`의 pgvector 이미지)
+3. Redis 7.x (JWT access token 큐 저장)
+4. OpenAI API Key와 Gmail OAuth 자격(선택) – `OPENAI_API_KEY`, `google.*` 설정으로 연동
 
 ## 로컬 실행 방법
-1. 의존성 다운로드 및 빌드
+1. PostgreSQL/Redis를 실행하고 `schema.sql`로 초기화하거나 `SPRING_PROFILES_ACTIVE=dev`로 내장 설정을 사용합니다.
+2. 의존성 설치 및 빌드
    ```bash
    ./gradlew clean build
    ```
-2. 애플리케이션 실행
+3. 애플리케이션 실행 (기본 포트 8000, API Base `/api/v1`)
    ```bash
-   ./gradlew bootRun
+   APP_PORT=8000 SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun
    ```
-3. 기본 포트는 `8000`이며, API는 `http://localhost:8000/api/v1` 아래에서 제공됩니다.
 4. 종료는 `Ctrl + C`로 수행합니다.
 
 ## Docker Compose 사용
 ```bash
 docker compose up --build
 ```
-- `docker-compose.yml`은 애플리케이션(`app`)과 PostgreSQL + pgvector(`db`)를 함께 올립니다.
-- `.env` 파일을 만들어 `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DATASOURCE_URL`, `JWT_SECRET_KEY` 등을 정의하세요.
-- DB 초기화가 끝나면 애플리케이션 컨테이너가 자동으로 기동됩니다.
+- `app`, `db(pgvector)`, `redis` 컨테이너가 함께 기동하며 `.env`에 포트/DB/JWT/AES/OpenAI/Gmail 값을 정의합니다.
+- Compose는 DB 초기화와 Redis 준비 후 애플리케이션을 자동으로 시작합니다.
 
 ## 데이터베이스 준비
-- `schema.sql`로 전체 스키마를 재생성할 수 있습니다.
-- pgvector 확장을 위해 데이터베이스에서 `CREATE EXTENSION IF NOT EXISTS vector;` 명령이 필요합니다.
-- 로컬 개발 시에는 `docker-compose.yml`의 `db` 서비스가 자동으로 확장을 설치합니다.
+- `schema.sql`은 `keys`, `encryption_contexts`, `users`, `sns_users`, `auth_token`, `email_verification`, `diary`, `diary_chunk`, `diary_chunk_embedding`, `chat_session`, `chat_message`, `roles`, `bot`, `bot_image`, `provider_tokens` 등을 생성합니다.
+- 초기 기동 시 `DefaultUserInitializer`가 카키/몽몽/채드 봇과 관리자 계정을 삽입해 빠르게 기능을 체험할 수 있습니다.
 
 ## 환경 설정
-- 기본 설정 파일: `src/main/resources/application.yml`
-  - `spring.datasource.*`: 데이터베이스 접속 정보
-  - `api.base-path`: API 베이스 경로(`/api/v1`)
-  - `external.frontend-url`: CORS 허용 대상(React 웹 앱 주소)
-  - `jwt.*`: JWT 키 ID, 발급자, 만료 시간 설정
-- 배포 환경에서는 환경 변수 또는 추가 `application-*.yml`로 값을 재정의하세요.
+- 기본 설정(`application.yml`)은 `server.port`, `spring.datasource`, `spring.mail`, `email`, `google`, `key`, `crypto.aes256-gcm`, `jwt`, `api.base-path` 등을 환경 변수로 주입받습니다.
+- `application-dev.yml`은 로컬 DB/Redis, Swagger 경로, CORS 도메인을, `application-prod.yml`은 배포용 포트/호스트 설정을 제공합니다.
+- `ExternalServiceProperties`와 `ApiProp`을 통해 CORS 허용 도메인과 OpenAPI server 정보를 중앙에서 관리합니다.
 
 ## 인증 및 보안
-- BCryptPasswordEncoder를 사용하여 비밀번호를 해시합니다.
-- Access Token은 JWT, Refresh Token은 DB(`auth_token` 테이블)에 저장됩니다.
-- Access Token은 HttpOnly + Secure 쿠키로 내려주며, 보호 API는 `Authorization: Bearer <token>` 헤더를 요구합니다.
-- JWT에는 `roles.role_name`, `users.user_id` 정보가 포함됩니다.
-- 인증 실패 시 401, 권한 부족 시 403 응답을 반환합니다.
+- `SecurityConfig`는 Stateless JWT 필터(`JwtAuthenticationFilter`)를 사용하고 `external.allow-origin-urls` 리스트만 `GET/POST/PUT/PATCH/OPTIONS` 요청을 허용합니다.
+- 비밀번호는 `BCryptPasswordEncoder`로 해시되며, JWT는 HS256 서명 후 A256GCM 암호화를 거쳐 발급됩니다.
+- Access Token은 HttpOnly+Secure 쿠키(`access_token`)로 반환하고, Refresh Token은 DB(`auth_token`)에 AES-GCM 컨텍스트와 함께 저장됩니다.
+- 이메일 인증은 6자리 코드, 5분 만료, 시간당 10회 제한을 적용하고 Gmail API 또는 No-op 발송기를 사용합니다.
 
 ## API 문서
-현재 배포 상태이므로 로컬이 아닌 배포 주소를 활용합니다.
-- Swagger UI: [http://mmebot.me:8000/swagger-ui](http://mmebot.me:8000/swagger-ui)
+- SpringDoc이 자동 스캔하며 `OpenApiConfiguration`이 공통 응답/보안 스키마를 추가합니다.
+- 실행 후 Swagger UI는 `http://localhost:8000/swagger-ui`, OpenAPI JSON은 `/api/v1/api-docs`에서 확인합니다.
 
 ## 테스트
 ```bash
 ./gradlew test
 ```
-- Spring Security 테스트 유틸과 JUnit Platform을 사용합니다.
+- JUnit 5와 `spring-security-test`를 사용하며 프로파일별 DB/Redis 설정을 그대로 활용합니다.
 
 ## 추가 참고 사항
-- CORS는 설정된 웹 프론트엔드 도메인만 허용하며, `GET/POST/PUT/PATCH/OPTIONS` 메서드를 지원합니다.
-- `ExternalServiceProperties`, `JwtProperties`, `ApiProp`는 `@ConfigurationProperties`로 주입됩니다.
-- 암호화 키/컨텍스트(`core` 도메인)는 일기/채팅 등 민감 데이터 접근을 위한 기반 정보입니다.
-- `VectorFloatArrayConverter`는 pgvector 임베딩을 `float[]`로 변환하여 저장/조회합니다.
+- `ChatService`는 일기 요약, 봇 페르소나, 기존 채팅 로그를 GPT-4.1-mini 모델에 전달하고 결과를 AES-GCM으로 저장합니다.
+- `KoreanTextAnalyzer`가 open-korean-text로 추출한 키워드를 `OpenAIService` 프롬프트에 활용합니다.
+- `ExternalServiceProperties`의 CORS 목록과 `MailConfiguration`(Gmail/Noop)을 적절히 조정하면 프론트엔드/이메일 시나리오를 쉽게 변경할 수 있습니다.
