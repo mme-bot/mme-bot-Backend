@@ -39,10 +39,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -148,7 +145,7 @@ class ChatServiceTest {
         when(chatMessageRepository.findAllByReplyMsgId(replyMsgId)).thenReturn(List.of());
         when(chatMessageRepository.findAllByChatSessionWithEnc(chatSession)).thenReturn(new java.util.ArrayList<>(List.of(replyMsg)));
         when(aesGcmCryptoService.decryptWithAad("summary-enc", userId.toString())).thenReturn("summary");
-        when(openAIService.sendChatMessage(eq("summary"), anyList(), eq("message"))).thenReturn("테스트");
+        when(openAIService.sendChatMessage(anyString(), anyString(), anyString(), anyString(), anyList(), anyString())).thenReturn("테스트");
         when(encryptionContextFactory.createContext(userId.toString())).thenReturn(userEnc);
         when(aesGcmCryptoService.encryptWithAad(eq("message"), same(userEnc.getAadHash()))).thenReturn("enc-user");
         when(aesGcmCryptoService.encryptWithAad(eq("테스트"), same(userEnc.getAadHash()))).thenReturn("enc-ai");
@@ -227,7 +224,7 @@ class ChatServiceTest {
         when(chatSessionRepository.findWithDiaryAndUser(sessionId)).thenReturn(Optional.of(chatSession));
         when(chatMessageRepository.findAllByChatSessionWithEnc(chatSession)).thenReturn(List.of());
         when(aesGcmCryptoService.decryptWithAad("short-enc", diaryEnc.getAadHash())).thenReturn("plain");
-        when(openAIService.sendFirstChatMsg("plain")).thenReturn("first-msg");
+        when(openAIService.sendFirstChatMsg("persona", "script", diary.getEmotion(), "plain")).thenReturn("first-msg");
         when(encryptionContextFactory.createContext(userId.toString())).thenReturn(msgEnc);
         when(aesGcmCryptoService.encryptWithAad(eq("resMsg"), same(msgEnc.getAadHash()))).thenReturn("first-msg-enc");
         when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
