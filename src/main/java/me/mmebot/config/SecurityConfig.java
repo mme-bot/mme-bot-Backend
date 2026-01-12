@@ -71,7 +71,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource(ExternalServiceProperties external) {
         CorsConfiguration configuration = new CorsConfiguration();
         if (external.allowOriginUrls() != null && !external.allowOriginUrls().isEmpty()) {
-            configuration.setAllowedOriginPatterns(external.allowOriginUrls());
+            configuration.setAllowedOrigins(external.allowOriginUrls());
         }
         configuration.setAllowedMethods(ALLOWED_METHODS);
         configuration.setAllowedHeaders(List.of("*"));

@@ -22,10 +22,28 @@ services:
         condition: service_healthy
     networks:
       - mmebot-net
+  fe:
+    image: holidaykang/mmebot-web:latest
+    container_name: mmebot-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mmebot-net
 
   db:
     image: pgvector/pgvector:pg17
     container_name: mmebot-db
+    restart: unless-stopped
     env_file:
       - .env
     environment:
