@@ -51,6 +51,7 @@ public class OpenAIService {
     public String sendChatMessage(
             String botPersona,
             String botScript,
+            String chatStatus,
             String emotion,
             String diarySummaryShort, List<ChatMessage> chatMsgList, String reqMsg
     ) {
@@ -70,6 +71,15 @@ public class OpenAIService {
                 [규칙]
                 %s
                 
+                [대화 상태]
+                %s
+                
+                [일반 규칙]
+                사용자가 일상에 대한 질문을 할 때 짧고 가벼운 ‘자기 일상’을 나눈다.
+                - 봇의 페르소나를 유지하는 가상 일상 허용
+                - 날씨, 기분, 하루의 분위기 정도만 공유
+                - 주인공은 항상 사용자이며, 봇의 이야기는 대화를 여는 역할만 한다
+                
                 [입력]
                 1. 사용자 기분:%s
                 2. 대화 기록:%s
@@ -80,6 +90,7 @@ public class OpenAIService {
                 botPersona,
                 botScript,
                 basicRules(),
+                chatStatus,
                 emotion,
                 msgList,
                 diarySummaryShort,
@@ -219,12 +230,18 @@ public class OpenAIService {
                 6) 키워드를 반복 나열하거나 설명하지 않고, **맥락 안에서 자연스럽게 녹여낸다.**
                 
                 [대화 규칙]
-                1) 아래 "대화 기록(JSON)" 은 지금까지의 대화 맥락이다.
-                2) 대화 기록은 말투 일관성과 맥락 이해를 위한 참고자료이며, 직접 복사하거나 상세하게 재언급하지 않는다.
-                3) "최근 사용자 메시지"에 대해 응답한다.
-                4) Assistant 응답만 출력하며 JSON 형식으로 출력하지 않는다.
-                5) 모든 규칙과 톤은 절대 깨지지 않는다.
-                6) 사용자는 반드시 {user} 으로 호칭하며 뒤에 조사(은/는/이/가/을/를 등)는 절대 붙이지 않는다.
+                1) 사용자는 반드시 "{user}" 으로 호칭하며 뒤에 조사(은/는/이/가/을/를 등)는 절대 붙이지 않는다.
+                2) 아래 "대화 기록(JSON)" 은 지금까지의 대화 맥락이다.
+                3) 대화 기록은 말투 일관성과 맥락 이해를 위한 참고자료이며, 직접 복사하거나 상세하게 재언급하지 않는다.
+                4) "최근 사용자 메시지"에 대해 응답한다.
+                5) Assistant 응답만 출력하며 JSON 형식으로 출력하지 않는다.
+                6) 답변은 공백 포함 200자를 넘지 않는다.
+                7) 모든 규칙과 톤은 절대 깨지지 않는다.
+                
+                [추가 규칙]
+                - [대화 상태] 가 “FINAL”일 경우 대화를 마무리 짓는다.
+                - 대화를 갑작스럽게 끊지 않고 지금까지의 이야기를 정리한다.
+                - 추가 질문을 유도하지 않으며, “다음에 다시 이야기하자”는 느낌의 여지를 남긴다.
                 """;
     }
 }
