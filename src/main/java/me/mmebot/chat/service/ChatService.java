@@ -6,6 +6,7 @@ import me.mmebot.chat.api.dto.ChatMsgRes.CreateChatMsgRes;
 import me.mmebot.chat.domain.ChatMessage;
 import me.mmebot.chat.domain.ChatSession;
 import me.mmebot.chat.domain.ChatSessionStatus;
+import me.mmebot.chat.domain.ChatStatus;
 import me.mmebot.chat.exception.ChatException;
 import me.mmebot.chat.repository.ChatMessageRepository;
 import me.mmebot.chat.repository.ChatSessionRepository;
@@ -125,7 +126,7 @@ public class ChatService {
         long userMsgCount = chatMsgList.stream()
                 .filter(ChatMessage::isUserMsg)
                 .count();
-        if (userMsgCount >= 20) {
+        if (userMsgCount >= 21) {
             throw ChatException.chatSessionUserMessageLimitExceeded(chatSession.getId(), 20);
         }
         // seq asc 순으로 정렬
@@ -137,6 +138,11 @@ public class ChatService {
          * ... ing
          */
 
+        ChatStatus chatStatus = ChatStatus.IN_PROGRESS;
+        if (userMsgCount >= 19) {
+            chatStatus = ChatStatus.FINAL;
+        }
+
         Diary diary = chatSession.getDiary();
         String diaryShortEnc = diary.getSummaryShort();
         String diaryShort = aesGcmCryptoService.decryptWithAad(diaryShortEnc, user.getId().toString());
@@ -144,6 +150,7 @@ public class ChatService {
         String response = openAiService.sendChatMessage(
                 user.getBot().getPersona(),
                 user.getBot().getScript(),
+                chatStatus.name(),
                 diary.getEmotion(),
                 diaryShort,
                 chatMsgList,

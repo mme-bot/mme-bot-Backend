@@ -145,7 +145,7 @@ class ChatServiceTest {
         when(chatMessageRepository.findAllByReplyMsgId(replyMsgId)).thenReturn(List.of());
         when(chatMessageRepository.findAllByChatSessionWithEnc(chatSession)).thenReturn(new java.util.ArrayList<>(List.of(replyMsg)));
         when(aesGcmCryptoService.decryptWithAad("summary-enc", userId.toString())).thenReturn("summary");
-        when(openAIService.sendChatMessage(anyString(), anyString(), anyString(), anyString(), anyList(), anyString())).thenReturn("테스트");
+        when(openAIService.sendChatMessage(anyString(), anyString(), anyString(), anyString(), anyString(), anyList(), anyString())).thenReturn("테스트");
         when(encryptionContextFactory.createContext(userId.toString())).thenReturn(userEnc);
         when(aesGcmCryptoService.encryptWithAad(eq("message"), same(userEnc.getAadHash()))).thenReturn("enc-user");
         when(aesGcmCryptoService.encryptWithAad(eq("테스트"), same(userEnc.getAadHash()))).thenReturn("enc-ai");
