@@ -37,7 +37,7 @@ public class OpenAIService {
 
     private String summarize(String prompt) {
         ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
-                .model(ChatModel.GPT_4_1_MINI) // 가성비 굿
+                .model(ChatModel.GPT_5_1_MINI) // 가성비 굿
                 .addUserMessage(prompt)
                 .build();
 
