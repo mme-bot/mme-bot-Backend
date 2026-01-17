@@ -286,10 +286,20 @@ public class ChatService {
      * @param chatSessionId : 채팅 세션 id
      * @return
      */
-    public List<ChatMsg> getChatMsgs(Long chatSessionId) {
-        // TODO JWT 구현이 될 경우 userId 와 chatSession 이 가진 유저가 같은 유저인지도 검증 필요
+//    public List<ChatMsg> getChatMsgs(Long chatSessionId) {
+    public List<ChatMsg> getChatMsgs(Long userId, Long chatSessionId) {
+        // TODO JWT 구현이 없으니 일단 userId 를 uri 로 받아서 검증하는 걸로, JWT 나오면 ~그땐 JWT에서 받거나 해야하나 고민
+        User user = userService.getActiveUser(userId);
+
         ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
                 .orElseThrow(() -> ChatException.chatSessionNotFound(chatSessionId));
+
+        if (!user.equals(chatSession.getDiary().getUser())) {
+            throw ChatException.chatSessionUserMismatch(
+                    chatSession.getId(),
+                    user.getId(),
+                    chatSession.getDiary().getUser().getId());
+        }
 
         List<ChatMessage> chatMessages = getChatMessages(chatSession);
         if (chatMessages.isEmpty()) {

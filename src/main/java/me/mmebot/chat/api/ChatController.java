@@ -21,24 +21,27 @@ import static me.mmebot.chat.api.dto.ChatSessionRes.*;
 public class ChatController {
 
     private final ChatService chatService;
-
-    @PostMapping
+    @PostMapping("/chatSession")
     public CreateChatSessionRes createChatSession(@RequestBody @Valid CreateChatSessionReq req) {
         return chatService.createChatSession(req);
     }
 
-    @GetMapping("/{chatSession}/messages")
-    public List<ChatMsg> chatMsgs(@PathVariable("chatSessionId") Long chatSessionId) {
-        return chatService.getChatMsgs(chatSessionId);
+    @GetMapping("/{userId}/{chatSessionId}/messages")
+//    public List<ChatMsg> chatMsgs(@PathVariable("chatSessionId") Long chatSessionId) {
+    public List<ChatMsg> chatMsgs(@PathVariable ("userId") Long userId,
+                                  @PathVariable("chatSessionId") Long chatSessionId) {
+        return chatService.getChatMsgs(userId, chatSessionId);
     }
 
     @PostMapping("/{chatSessionId}/message/start")
-    public StartChatRes startChat(@RequestBody @Valid StartChatReq req, @PathVariable("chatSessionId") Long chatSessionId) {
+    public StartChatRes startChat(@RequestBody @Valid StartChatReq req,
+                                  @PathVariable("chatSessionId") Long chatSessionId) {
         return chatService.createFirstChat(chatSessionId, req);
     }
 
     @PostMapping("/{chatSessionId}/messages")
-    public List<CreateChatMsgRes> sendAndStreamMsg(@RequestBody @Valid CreateChatMsgReq req, @PathVariable("chatSessionId") Long chatSessionId) {
+    public List<CreateChatMsgRes> sendAndStreamMsg(@RequestBody @Valid CreateChatMsgReq req,
+                                                   @PathVariable("chatSessionId") Long chatSessionId) {
         return chatService.createChatMessage(chatSessionId, req);
     }
 }

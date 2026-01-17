@@ -320,7 +320,7 @@ class ChatServiceTest {
         when(aesGcmCryptoService.decryptWithAad("enc-1", msgEnc1.getAadHash())).thenReturn("first");
         when(aesGcmCryptoService.decryptWithAad("enc-2", msgEnc2.getAadHash())).thenReturn("second");
 
-        List<ChatMsg> chatMsgs = chatService.getChatMsgs(sessionId);
+        List<ChatMsg> chatMsgs = chatService.getChatMsgs(user.getId(), sessionId);
 
         assertThat(chatMsgs).hasSize(2);
         assertThat(chatMsgs.getFirst().seq()).isEqualTo(1);
