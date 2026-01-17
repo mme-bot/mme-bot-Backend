@@ -144,15 +144,16 @@ public class ChatService {
         }
 
         Diary diary = chatSession.getDiary();
-        String diaryShortEnc = diary.getSummaryShort();
-        String diaryShort = aesGcmCryptoService.decryptWithAad(diaryShortEnc, user.getId().toString());
+//        String diaryShortEnc = diary.getSummaryShort();
+        String diaryContentEnc = diary.getContent();
+        String diaryContent = aesGcmCryptoService.decryptWithAad(diaryContentEnc, user.getId().toString());
 
         String response = openAiService.sendChatMessage(
                 user.getBot().getPersona(),
                 user.getBot().getScript(),
                 chatStatus.name(),
                 diary.getEmotion(),
-                diaryShort,
+                diaryContent,
                 chatMsgList,
                 req.msg());
 
@@ -180,7 +181,6 @@ public class ChatService {
         );
 
         saveChats(reqMsg, resMsg);
-
 
         return List.of(
                 new CreateChatMsgRes(
@@ -256,16 +256,17 @@ public class ChatService {
         }
 
         Diary diary = chatSession.getDiary();
-        String summaryShortEnc = diary.getSummaryShort();
+//        String summaryShortEnc = diary.getSummaryShort();
+        String contentEnc = diary.getContent();
         EncryptionContext encryptionContext = diary.getEncryptionContext();
-        String summaryShort = aesGcmCryptoService.decryptWithAad(summaryShortEnc, encryptionContext.getAadHash());
+        String content = aesGcmCryptoService.decryptWithAad(contentEnc, encryptionContext.getAadHash());
 
         Bot bot = user.getBot();
         String resMsg = openAiService.sendFirstChatMsg(
                 bot.getPersona(),
                 bot.getScript(),
                 diary.getEmotion(),
-                summaryShort);
+                content);
         EncryptionContext msgEncContext = encryptionContextFactory.createContext(user.getId().toString());
         String resMsgEnc = aesGcmCryptoService.encryptWithAad(resMsg, msgEncContext.getAadHash());
 

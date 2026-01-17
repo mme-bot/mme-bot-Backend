@@ -35,17 +35,17 @@ public class DiaryService {
         User user = userService.getActiveUser(request.userId());
         ensureUniqueDiaryDate(user.getId(), request.date());
 
-        String summaryShort = openAiService.diarySummarizeShort(request.content());
+//        String summaryShort = openAiService.diarySummarizeShort(request.content());
 
         String aadStr = user.getId().toString();
-        String summaryShortEnc = aesGcmCryptoService.encryptWithAad(summaryShort, aadStr);
+//        String summaryShortEnc = aesGcmCryptoService.encryptWithAad(summaryShort, aadStr);
         String contentEnc = aesGcmCryptoService.encryptWithAad(request.content(), aadStr);
 
         Diary diary = Diary.builder()
                 .user(user)
                 .content(contentEnc)
                 .emotion(request.emotion())
-                .summaryShort(summaryShortEnc)
+//                .summaryShort(summaryShortEnc)
                 .date(request.date())
                 .encryptionContext(encryptionContextFactory.createContext(aadStr))
                 .build();
