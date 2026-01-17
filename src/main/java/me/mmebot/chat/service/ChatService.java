@@ -1,6 +1,7 @@
 package me.mmebot.chat.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import me.mmebot.bot.domain.Bot;
 import me.mmebot.chat.api.dto.ChatMsgRes.CreateChatMsgRes;
 import me.mmebot.chat.domain.ChatMessage;
@@ -17,10 +18,13 @@ import me.mmebot.diary.domain.Diary;
 import me.mmebot.diary.service.DiaryService;
 import me.mmebot.openai.dto.ChatMessageRole;
 import me.mmebot.openai.service.OpenAIService;
+import me.mmebot.stream.StreamContextStore;
 import me.mmebot.user.domain.User;
 import me.mmebot.user.service.UserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -32,7 +36,9 @@ import static me.mmebot.chat.api.dto.ChatMsgReq.*;
 import static me.mmebot.chat.api.dto.ChatMsgRes.*;
 import static me.mmebot.chat.api.dto.ChatSessionReq.*;
 import static me.mmebot.chat.api.dto.ChatSessionRes.*;
+import static me.mmebot.stream.StreamContextContent.*;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatService {
@@ -44,6 +50,7 @@ public class ChatService {
     private final OpenAIService openAiService;
     private final AesGcmCryptoService aesGcmCryptoService;
     private final EncryptionContextFactory encryptionContextFactory;
+    private final StreamContextStore streamContextStore;
 
     public CreateChatSessionRes createChatSession(CreateChatSessionReq req) {
         Diary diary = diaryService.getActiveDiary(req.diaryId());
@@ -234,11 +241,19 @@ public class ChatService {
         );
     }
 
-    public StartChatRes createFirstChat(Long chatSessionId, StartChatReq req) {
+//    public StartChatRes createFirstChat(Long chatSessionId, StartChatReq req) {
+    public Flux<String> createFirstChat(String streamId) {
         /**
          * 세션으로 첫 메시지 생성하기
          */
-        User user = userService.getActiveUser(req.userId());
+        FirstChatStreamContext streamContext = (FirstChatStreamContext) streamContextStore.get(streamId);
+        if (streamContext == null) {
+            return Flux.just("스트림 정보가 만료되었어요. 다시 시도해주세요.");
+        }
+        Long chatSessionId = streamContext.chatSessionId();
+        Long userId = streamContext.userId();
+
+        User user = userService.getActiveUser(userId);
         ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId).orElseThrow(() ->
             ChatException.chatSessionNotFound(chatSessionId));
 
@@ -262,11 +277,33 @@ public class ChatService {
         String content = aesGcmCryptoService.decryptWithAad(contentEnc, encryptionContext.getAadHash());
 
         Bot bot = user.getBot();
-        String resMsg = openAiService.sendFirstChatMsg(
+        StringBuilder fullMsg = new StringBuilder();
+
+//        String resMsg = openAiService.sendFirstChatMsg(
+        Flux<String> aiStream = openAiService.sendFirstChatMsg(
                 bot.getPersona(),
                 bot.getScript(),
                 diary.getEmotion(),
-                content);
+                content)
+                .doOnNext(fullMsg::append) // 토큰 누적
+                .doOnComplete(() -> {
+                    // 3. 스트림 끝난 뒤 DB 저장 (⭐ 중요)
+                    saveFinalMessage(chatSession, user, fullMsg.toString());
+                })
+                .doFinally( doOnFinally ->
+                        streamContextStore.remove(streamId)
+                );
+
+        return Flux.concat(
+                Flux.just("음… 잠깐만 생각해볼게요.\n"),
+                aiStream
+        ).subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(e -> {
+                    return Flux.just("문제가 발생했어요." + e.getMessage());
+                });
+    }
+
+    public void saveFinalMessage(ChatSession chatSession, User user, String resMsg) {
         EncryptionContext msgEncContext = encryptionContextFactory.createContext(user.getId().toString());
         String resMsgEnc = aesGcmCryptoService.encryptWithAad(resMsg, msgEncContext.getAadHash());
 
@@ -279,7 +316,6 @@ public class ChatService {
                 null
         );
         saveChatMessage(chatMessage);
-        return new StartChatRes(chatMessage.getId(), renderMsgUserToNickname(resMsg, user.getNickname()));
     }
 
     /**

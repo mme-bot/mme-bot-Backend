@@ -1,23 +1,38 @@
 package me.mmebot.openai.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import me.mmebot.chat.domain.ChatMessage;
 import me.mmebot.common.KoreanTextAnalyzer;
 import me.mmebot.openai.dto.OpenAIChatMessage;
 import me.mmebot.openai.exception.OpenAIException;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OpenAIService {
     private final OpenAIClient openAIClient;
     private final KoreanTextAnalyzer analyzer;
+    private final WebClient openAiWebClient;
+    private final ObjectMapper objectMapper;
 
     public String diarySummarizeShort(String content) {
         List<String> keywords = analyzer.extractKeywords(content);
@@ -33,6 +48,52 @@ public class OpenAIService {
     """.formatted(keywords);
 
         return summarize(prompt);
+    }
+
+    private Flux<String> extractDelta(String raw) {
+        return Flux.fromArray(raw.split("\n"))
+                .filter(line -> line.startsWith("data:"))
+                .filter(line -> !line.contains("[DONE]"))
+                .flatMap(line -> {
+                    try {
+                        String json = line.substring(6);
+                        JsonNode node = objectMapper.readTree(json);
+                        JsonNode content = node.at("/choices/0/delta/content");
+                        if (content.isMissingNode()) return Flux.empty();
+                        return Flux.just(content.asText());
+                    } catch (Exception e) {
+                        log.debug("parse skip line={}", line);
+                        return Flux.empty();
+                    }
+                });
+    }
+
+    public Flux<String> summarizeStream(String prompt) {
+        return openAiWebClient.post()
+                .uri("/chat/completions")
+                .bodyValue(Map.of(
+                        "model", "gpt-5-mini",
+                        "stream", true,
+                        "messages", List.of(
+                                Map.of("role", "user", "content", prompt)
+                        )
+                ))
+                .retrieve()
+                .onStatus(
+                        HttpStatusCode::isError,
+                        resp -> resp.bodyToMono(String.class)
+                                .doOnNext(err -> log.error("OpenAI error body = {}", err))
+                                .then(Mono.error(new RuntimeException("OpenAI error")))
+                )
+                .bodyToFlux(new ParameterizedTypeReference<ServerSentEvent<String>>() {})
+//                .doOnNext(sse -> log.info("SSE RAW = {}", sse)) // 개발 로깅용
+                .flatMap(sse -> {
+                    String data = sse.data();
+                    if (data == null || data.contains("[DONE]")) {
+                        return Flux.empty();
+                    }
+                    return extractDelta("data: " + data);
+                });
     }
 
     private String summarize(String prompt) {
@@ -101,7 +162,8 @@ public class OpenAIService {
     }
 
 
-    public String sendFirstChatMsg(
+//    public String sendFirstChatMsg(
+    public Flux<String> sendFirstChatMsg(
             String botPersona,
             String botScript,
             String emotion,
@@ -128,7 +190,8 @@ public class OpenAIService {
                 emotion,
                 summaryShort
         );
-        return summarize(prompt);
+//        return summarize(prompt);
+        return summarizeStream(prompt);
     }
 
     // 테스트용 봇 스크립트, 운영에서는 사용 X
@@ -235,7 +298,7 @@ public class OpenAIService {
                 3) 대화 기록은 말투 일관성과 맥락 이해를 위한 참고자료이며, 직접 복사하거나 상세하게 재언급하지 않는다.
                 4) "최근 사용자 메시지"에 대해 응답한다.
                 5) Assistant 응답만 출력하며 JSON 형식으로 출력하지 않는다.
-                6) 답변은 공백 포함 200자를 넘지 않는다.
+                6) 답변은 공백 포함 500자를 넘지 않는다.
                 7) 모든 규칙과 톤은 절대 깨지지 않는다.
                 
                 [추가 규칙]

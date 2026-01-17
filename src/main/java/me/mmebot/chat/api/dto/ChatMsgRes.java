@@ -19,4 +19,8 @@ public class ChatMsgRes {
             ChatMessageRole role,
             String msg
     ) {}
+
+    public record StartChatInitRes(
+            String streamId
+    ) {}
 }
