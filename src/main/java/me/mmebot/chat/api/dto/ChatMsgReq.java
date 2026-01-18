@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 
 public class ChatMsgReq {
     public record StartChatReq(
+            @NotNull
             Long userId
     ) {}
     public record CreateChatMsgReq(

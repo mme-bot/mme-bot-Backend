@@ -132,7 +132,7 @@ class ChatServiceTest {
                 .id(replyMsgId)
                 .chatSession(chatSession)
                 .seq(1)
-                .role(ChatMessageRole.SYSTEM)
+                .role(ChatMessageRole.ASSISTANT)
                 .content("reply-content")
                 .encryptionContext(replyEncCtx)
                 .createdAt(OffsetDateTime.now())
@@ -166,7 +166,7 @@ class ChatServiceTest {
         assertThat(result.getFirst().role()).isEqualTo(ChatMessageRole.USER);
         assertThat(result.get(1).chatMsgId()).isEqualTo(302L);
         assertThat(result.get(1).msg()).isEqualTo("테스트");
-        assertThat(result.get(1).role()).isEqualTo(ChatMessageRole.SYSTEM);
+        assertThat(result.get(1).role()).isEqualTo(ChatMessageRole.ASSISTANT);
         verify(chatMessageRepository, times(2)).save(any(ChatMessage.class));
     }
 
@@ -189,7 +189,7 @@ class ChatServiceTest {
                 .id(replyMsgId)
                 .chatSession(chatSession)
                 .seq(3)
-                .role(ChatMessageRole.SYSTEM)
+                .role(ChatMessageRole.ASSISTANT)
                 .content("reply")
                 .encryptionContext(encryptionContext("reply", 4))
                 .createdAt(OffsetDateTime.now())
@@ -223,7 +223,7 @@ class ChatServiceTest {
                 .id(replyMsgId)
                 .chatSession(chatSession)
                 .seq(1)
-                .role(ChatMessageRole.SYSTEM)
+                .role(ChatMessageRole.ASSISTANT)
                 .content("reply")
                 .encryptionContext(encryptionContext("reply", 4))
                 .createdAt(OffsetDateTime.now())
@@ -309,7 +309,7 @@ class ChatServiceTest {
                 .id(1L)
                 .chatSession(chatSession)
                 .seq(1)
-                .role(ChatMessageRole.SYSTEM)
+                .role(ChatMessageRole.ASSISTANT)
                 .content("enc-1")
                 .encryptionContext(msgEnc1)
                 .createdAt(OffsetDateTime.now())

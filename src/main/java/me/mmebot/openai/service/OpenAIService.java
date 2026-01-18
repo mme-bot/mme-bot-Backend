@@ -10,18 +10,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.chat.domain.ChatMessage;
 import me.mmebot.common.KoreanTextAnalyzer;
-import me.mmebot.openai.dto.OpenAIChatMessage;
+import me.mmebot.openai.dto.ChatMessageRole;
 import me.mmebot.openai.exception.OpenAIException;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
-import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -34,49 +35,50 @@ public class OpenAIService {
     private final WebClient openAiWebClient;
     private final ObjectMapper objectMapper;
 
-    public String diarySummarizeShort(String content) {
-        List<String> keywords = analyzer.extractKeywords(content);
-
-        String prompt = """
-    아래는 한국어 일기의 형태소 분석 결과입니다.
-    입력된 키워드를 기반으로 가장 핵심적인 의미를 추출해
-    최대 15개의 주요 키워드를 명사 중심으로 요약하세요.
-    - 결과는 쉼표(,)로만 구분된 단일 라인으로 출력
-
-    [형태소 분석 결과]
-    %s
-    """.formatted(keywords);
-
-        return summarize(prompt);
-    }
+//    public String diarySummarizeShort(String content) {
+//        List<String> keywords = analyzer.extractKeywords(content);
+//
+//        String prompt = """
+//    아래는 한국어 일기의 형태소 분석 결과입니다.
+//    입력된 키워드를 기반으로 가장 핵심적인 의미를 추출해
+//    최대 15개의 주요 키워드를 명사 중심으로 요약하세요.
+//    - 결과는 쉼표(,)로만 구분된 단일 라인으로 출력
+//
+//    [형태소 분석 결과]
+//    %s
+//    """.formatted(keywords);
+//
+//        return summarize(prompt);
+//    }
 
     private Flux<String> extractDelta(String raw) {
         return Flux.fromArray(raw.split("\n"))
                 .filter(line -> line.startsWith("data:"))
+                .map(line -> line.substring(6)) // "data: " 제거
                 .filter(line -> !line.contains("[DONE]"))
-                .flatMap(line -> {
+                .flatMap(json -> {
                     try {
-                        String json = line.substring(6);
                         JsonNode node = objectMapper.readTree(json);
-                        JsonNode content = node.at("/choices/0/delta/content");
-                        if (content.isMissingNode()) return Flux.empty();
-                        return Flux.just(content.asText());
+                        JsonNode delta = node.at("/choices/0/delta");
+
+                        // content 없는 delta (role 등) 무시
+                        if (!delta.has("content")) return Flux.empty();
+
+                        return Flux.just(delta.get("content").asText());
                     } catch (Exception e) {
-                        log.debug("parse skip line={}", line);
+                        log.debug("parse skip line={}", json);
                         return Flux.empty();
                     }
                 });
     }
 
-    public Flux<String> summarizeStream(String prompt) {
+    public Flux<String> summarizeStream(List<Map<String, String>> content) {
         return openAiWebClient.post()
                 .uri("/chat/completions")
                 .bodyValue(Map.of(
                         "model", "gpt-5-mini",
                         "stream", true,
-                        "messages", List.of(
-                                Map.of("role", "user", "content", prompt)
-                        )
+                        "messages", content
                 ))
                 .retrieve()
                 .onStatus(
@@ -86,10 +88,10 @@ public class OpenAIService {
                                 .then(Mono.error(new RuntimeException("OpenAI error")))
                 )
                 .bodyToFlux(new ParameterizedTypeReference<ServerSentEvent<String>>() {})
-//                .doOnNext(sse -> log.info("SSE RAW = {}", sse)) // 개발 로깅용
+                .doOnNext(sse -> log.info("SSE RAW = {}", sse)) // 개발 로깅용
                 .flatMap(sse -> {
                     String data = sse.data();
-                    if (data == null || data.contains("[DONE]")) {
+                    if (!StringUtils.hasText(data) || data.contains("[DONE]")) {
                         return Flux.empty();
                     }
                     return extractDelta("data: " + data);
@@ -109,19 +111,14 @@ public class OpenAIService {
         );
     }
 
-    public String sendChatMessage(
+    public Flux<String> sendChatMessage(
             String botPersona,
             String botScript,
             String chatStatus,
             String emotion,
-            String diarySummaryShort, List<ChatMessage> chatMsgList, String reqMsg
+            List<ChatMessage> chatMsgList,
+            String reqMsg
     ) {
-        List<OpenAIChatMessage> msgList = chatMsgList.stream().map(chatMsg ->
-                new OpenAIChatMessage(
-                        chatMsg.getRole(),
-                        chatMsg.getContent()
-                )).toList();
-
         String prompt = """
                 [페르소나 규칙]
                 %s
@@ -142,32 +139,64 @@ public class OpenAIService {
                 - 주인공은 항상 사용자이며, 봇의 이야기는 대화를 여는 역할만 한다
                 
                 [입력]
-                1. 사용자 기분:%s
-                2. 대화 기록:%s
-                3. 사용자의 일기 기반 키워드:%s
-                4. 최근 사용자 메시지:%s
+                사용자 기분:%s
                 위 내용을 기반으로 사용자의 마지막 메시지에 응답하라.
                 """.formatted(
                 botPersona,
                 botScript,
                 basicRules(),
                 chatStatus,
-                emotion,
-                msgList,
-                diarySummaryShort,
-                reqMsg
+                emotion
         );
+        return summarizeStream(buildMessages(prompt, chatMsgList, reqMsg));
+    }
 
-        return summarize(prompt);
+    private List<Map<String, String>> buildMessages(
+            String systemPrompt,
+            List<ChatMessage> history,
+            String userPrompt
+    ) {
+        List<Map<String, String>> messages = new ArrayList<>();
+
+        if (systemPrompt != null && !systemPrompt.isBlank()) {
+            messages.add(Map.of(
+                    "role", "system",
+                    "content", systemPrompt
+            ));
+        }
+
+        if (history != null && !history.isEmpty()) {
+            for (ChatMessage msg : history) {
+                messages.add(Map.of(
+                        "role", toOpenAiRole(msg.getRole()),
+                        "content", msg.getContent()
+                ));
+            }
+        }
+
+        if (userPrompt != null) {
+            messages.add(Map.of(
+                    "role", "user",
+                    "content", userPrompt
+            ));
+        }
+
+        return messages;
+    }
+
+    private String toOpenAiRole(ChatMessageRole role) {
+        return switch (role) {
+            case USER -> "user";
+            case ASSISTANT -> "assistant";
+        };
     }
 
 
-//    public String sendFirstChatMsg(
     public Flux<String> sendFirstChatMsg(
             String botPersona,
             String botScript,
             String emotion,
-            String summaryShort
+            String diaryContent
     ) {
         String prompt = """
                 [페르소나]
@@ -188,10 +217,9 @@ public class OpenAIService {
                 botScript,
                 basicRules(),
                 emotion,
-                summaryShort
+                diaryContent
         );
-//        return summarize(prompt);
-        return summarizeStream(prompt);
+        return summarizeStream(buildMessages(prompt, Collections.emptyList(), "대화 시작"));
     }
 
     // 테스트용 봇 스크립트, 운영에서는 사용 X

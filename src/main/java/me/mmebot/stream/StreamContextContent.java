@@ -18,4 +18,23 @@ public class StreamContextContent {
             return timestamp;
         }
     }
+
+    public record ChatStreamContext(
+            Long chatSessionId,
+            Long userId,
+            Long replyToMsgId,
+            String msg,
+            LocalDateTime timestamp
+    ) implements StreamContext {
+
+        @Override
+        public StreamContextType type() {
+            return StreamContextType.CONTINUE_CHAT;
+        }
+
+        @Override
+        public LocalDateTime createdAt() {
+            return timestamp;
+        }
+    }
 }

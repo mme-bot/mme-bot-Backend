@@ -23,4 +23,8 @@ public class ChatMsgRes {
     public record StartChatInitRes(
             String streamId
     ) {}
+
+    public record StartChatMsgRes(
+            String streamId
+    ) {}
 }
