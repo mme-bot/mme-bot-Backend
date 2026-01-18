@@ -85,7 +85,7 @@ public class ChatController {
         return new StartChatMsgRes(streamId);
     }
 
-    @GetMapping(value = "/stream/message", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/stream/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> chatStream(@RequestParam String streamId) {
         return chatService.createChatMessage(streamId);
     }

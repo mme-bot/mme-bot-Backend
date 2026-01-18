@@ -107,7 +107,7 @@ public class ChatService {
         ChatStreamContext streamContext = (ChatStreamContext) streamContextStore.get(streamId);
 
         Long userId = streamContext.userId();
-        Long chatSessionId = streamContext.userId();
+        Long chatSessionId = streamContext.chatSessionId();
         Long replyToMsgId = streamContext.replyToMsgId();
         String msg = streamContext.msg();
 
