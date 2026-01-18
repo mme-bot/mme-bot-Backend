@@ -59,8 +59,6 @@ class DiaryServiceTest {
 
         when(userService.getActiveUser(userId)).thenReturn(user);
         when(diaryRepository.findByUserIdAndDateAndDeletedAtIsNull(userId, date)).thenReturn(Optional.empty());
-        when(openAiService.diarySummarizeShort("today-content")).thenReturn("summary");
-        when(aesGcmCryptoService.encryptWithAad("summary", userId.toString())).thenReturn("summary-enc");
         when(aesGcmCryptoService.encryptWithAad("today-content", userId.toString())).thenReturn("content-enc");
         when(encryptionContextFactory.createContext(userId.toString())).thenReturn(encryptionContext);
         when(diaryRepository.save(any(Diary.class))).thenAnswer(invocation -> {
@@ -77,7 +75,7 @@ class DiaryServiceTest {
         Diary saved = diaryCaptor.getValue();
         assertThat(saved.getUser()).isEqualTo(user);
         assertThat(saved.getContent()).isEqualTo("content-enc");
-        assertThat(saved.getSummaryShort()).isEqualTo("summary-enc");
+        assertThat(saved.getSummaryShort()).isNull();
         assertThat(saved.getDate()).isEqualTo(date);
         assertThat(saved.getEmotion()).isEqualTo("JOY");
         assertThat(saved.getEncryptionContext()).isEqualTo(encryptionContext);

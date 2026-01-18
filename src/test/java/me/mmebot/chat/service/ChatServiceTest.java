@@ -1,11 +1,7 @@
 package me.mmebot.chat.service;
 
 import me.mmebot.bot.domain.Bot;
-import me.mmebot.chat.api.dto.ChatMsgReq.CreateChatMsgReq;
-import me.mmebot.chat.api.dto.ChatMsgReq.StartChatReq;
 import me.mmebot.chat.api.dto.ChatMsgRes.ChatMsg;
-import me.mmebot.chat.api.dto.ChatMsgRes.CreateChatMsgRes;
-import me.mmebot.chat.api.dto.ChatMsgRes.StartChatRes;
 import me.mmebot.chat.api.dto.ChatSessionReq.CreateChatSessionReq;
 import me.mmebot.chat.api.dto.ChatSessionRes.CreateChatSessionRes;
 import me.mmebot.chat.domain.ChatMessage;
@@ -21,6 +17,9 @@ import me.mmebot.diary.domain.Diary;
 import me.mmebot.diary.service.DiaryService;
 import me.mmebot.openai.dto.ChatMessageRole;
 import me.mmebot.openai.service.OpenAIService;
+import me.mmebot.stream.StreamContextStore;
+import me.mmebot.stream.StreamContextContent.ChatStreamContext;
+import me.mmebot.stream.StreamContextContent.FirstChatStreamContext;
 import me.mmebot.user.domain.User;
 import me.mmebot.user.service.UserService;
 import org.junit.jupiter.api.Test;
@@ -32,10 +31,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
+import reactor.core.publisher.Flux;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -62,6 +62,8 @@ class ChatServiceTest {
     private AesGcmCryptoService aesGcmCryptoService;
     @Mock
     private EncryptionContextFactory encryptionContextFactory;
+    @Mock
+    private StreamContextStore streamContextStore;
 
     @InjectMocks
     private ChatService chatService;
@@ -117,6 +119,7 @@ class ChatServiceTest {
         Long userId = 12L;
         Long chatSessionId = 44L;
         Long replyMsgId = 101L;
+        String streamId = "stream-1";
         User user = buildUser(userId);
         Diary diary = buildDiary(78L, user, LocalDate.now(), "summary-enc");
         ChatSession chatSession = ChatSession.builder()
@@ -138,36 +141,47 @@ class ChatServiceTest {
                 .createdAt(OffsetDateTime.now())
                 .build();
         EncryptionContext userEnc = encryptionContext("aad-user", 9);
+        ChatStreamContext streamContext = new ChatStreamContext(
+                chatSessionId,
+                userId,
+                replyMsgId,
+                "message",
+                LocalDateTime.now()
+        );
 
+        when(streamContextStore.get(streamId)).thenReturn(streamContext);
         when(userService.getActiveUser(userId)).thenReturn(user);
         when(chatSessionRepository.findWithDiaryAndUser(chatSessionId)).thenReturn(Optional.of(chatSession));
         when(chatMessageRepository.findById(replyMsgId)).thenReturn(Optional.of(replyMsg));
         when(chatMessageRepository.findAllByReplyMsgId(replyMsgId)).thenReturn(List.of());
-        when(chatMessageRepository.findAllByChatSessionWithEnc(chatSession)).thenReturn(new java.util.ArrayList<>(List.of(replyMsg)));
-        when(aesGcmCryptoService.decryptWithAad("summary-enc", userId.toString())).thenReturn("summary");
-        when(openAIService.sendChatMessage(anyString(), anyString(), anyString(), anyString(), anyString(), anyList(), anyString())).thenReturn("테스트");
+        when(chatMessageRepository.findAllByChatSessionWithEnc(chatSession))
+                .thenReturn(new java.util.ArrayList<>(List.of(replyMsg)));
+        when(openAIService.sendChatMessage(
+                eq("persona"),
+                eq("script"),
+                anyString(),
+                eq(diary.getEmotion()),
+                anyList(),
+                eq("message"),
+                eq(user.getNickname())
+        )).thenReturn(Flux.just("테스트"));
         when(encryptionContextFactory.createContext(userId.toString())).thenReturn(userEnc);
-        when(aesGcmCryptoService.encryptWithAad(eq("message"), same(userEnc.getAadHash()))).thenReturn("enc-user");
-        when(aesGcmCryptoService.encryptWithAad(eq("테스트"), same(userEnc.getAadHash()))).thenReturn("enc-ai");
-
-        AtomicLong idSeq = new AtomicLong(300);
+        when(aesGcmCryptoService.encryptWithAad(eq("message"), any(byte[].class))).thenReturn("enc-user");
+        when(aesGcmCryptoService.encryptWithAad(eq("테스트"), any(byte[].class))).thenReturn("enc-ai");
         when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
             ChatMessage msg = invocation.getArgument(0);
-            ReflectionTestUtils.setField(msg, "id", idSeq.incrementAndGet());
+            ReflectionTestUtils.setField(msg, "id", 300L + msg.getSeq());
             return msg;
         });
 
-        List<CreateChatMsgRes> result = chatService.createChatMessage(chatSessionId, new CreateChatMsgReq(userId, replyMsgId, "message"));
+        List<String> responses = chatService.createChatMessage(streamId)
+                .collectList()
+                .block();
 
-        assertThat(result).hasSize(2);
-        assertThat(result.getFirst().chatMsgId()).isEqualTo(301L);
-        assertThat(result.getFirst().seq()).isEqualTo(2);
-        assertThat(result.getFirst().msg()).isEqualTo("message");
-        assertThat(result.getFirst().role()).isEqualTo(ChatMessageRole.USER);
-        assertThat(result.get(1).chatMsgId()).isEqualTo(302L);
-        assertThat(result.get(1).msg()).isEqualTo("테스트");
-        assertThat(result.get(1).role()).isEqualTo(ChatMessageRole.ASSISTANT);
+        assertThat(responses).containsExactly("LOADING", "테스트");
+
         verify(chatMessageRepository, times(2)).save(any(ChatMessage.class));
+        verify(streamContextStore).remove(streamId);
     }
 
     @Test
@@ -175,6 +189,7 @@ class ChatServiceTest {
         Long userId = 1L;
         Long sessionId = 2L;
         Long replyMsgId = 10L;
+        String streamId = "stream-dup";
         User user = buildUser(userId);
         Diary diary = buildDiary(3L, user, LocalDate.now(), "enc");
         ChatSession chatSession = ChatSession.builder()
@@ -194,13 +209,21 @@ class ChatServiceTest {
                 .encryptionContext(encryptionContext("reply", 4))
                 .createdAt(OffsetDateTime.now())
                 .build();
+        ChatStreamContext streamContext = new ChatStreamContext(
+                sessionId,
+                userId,
+                replyMsgId,
+                "hello",
+                LocalDateTime.now()
+        );
 
+        when(streamContextStore.get(streamId)).thenReturn(streamContext);
         when(userService.getActiveUser(userId)).thenReturn(user);
         when(chatSessionRepository.findWithDiaryAndUser(sessionId)).thenReturn(Optional.of(chatSession));
         when(chatMessageRepository.findById(replyMsgId)).thenReturn(Optional.of(replyMsg));
         when(chatMessageRepository.findAllByReplyMsgId(replyMsgId)).thenReturn(List.of(replyMsg));
 
-        assertThatThrownBy(() -> chatService.createChatMessage(sessionId, new CreateChatMsgReq(userId, replyMsgId, "hello")))
+        assertThatThrownBy(() -> chatService.createChatMessage(streamId))
                 .isInstanceOf(ChatException.class);
     }
 
@@ -209,6 +232,7 @@ class ChatServiceTest {
         Long userId = 1L;
         Long sessionId = 2L;
         Long replyMsgId = 10L;
+        String streamId = "stream-limit";
         User user = buildUser(userId);
         Diary diary = buildDiary(3L, user, LocalDate.now(), "enc");
         ChatSession chatSession = ChatSession.builder()
@@ -230,17 +254,25 @@ class ChatServiceTest {
                 .build();
         List<ChatMessage> chatMessages = new java.util.ArrayList<>();
         chatMessages.add(replyMsg);
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 21; i++) {
             chatMessages.add(buildChatMessage(chatSession, i + 2, ChatMessageRole.USER));
         }
+        ChatStreamContext streamContext = new ChatStreamContext(
+                sessionId,
+                userId,
+                replyMsgId,
+                "hello",
+                LocalDateTime.now()
+        );
 
+        when(streamContextStore.get(streamId)).thenReturn(streamContext);
         when(userService.getActiveUser(userId)).thenReturn(user);
         when(chatSessionRepository.findWithDiaryAndUser(sessionId)).thenReturn(Optional.of(chatSession));
         when(chatMessageRepository.findById(replyMsgId)).thenReturn(Optional.of(replyMsg));
         when(chatMessageRepository.findAllByReplyMsgId(replyMsgId)).thenReturn(List.of());
         when(chatMessageRepository.findAllByChatSessionWithEnc(chatSession)).thenReturn(chatMessages);
 
-        assertThatThrownBy(() -> chatService.createChatMessage(sessionId, new CreateChatMsgReq(userId, replyMsgId, "hello")))
+        assertThatThrownBy(() -> chatService.createChatMessage(streamId))
                 .isInstanceOf(ChatException.class);
     }
 
@@ -248,10 +280,12 @@ class ChatServiceTest {
     void 첫_채팅시_오픈ai_응답으로_세션을_초기화() {
         Long userId = 5L;
         Long sessionId = 9L;
+        String streamId = "stream-first";
         User user = buildUser(userId);
         EncryptionContext diaryEnc = encryptionContext("diary", 15);
         Diary diary = buildDiary(777L, user, LocalDate.now(), "short-enc");
         ReflectionTestUtils.setField(diary, "encryptionContext", diaryEnc);
+        ReflectionTestUtils.setField(diary, "content", "short-enc");
         ChatSession chatSession = ChatSession.builder()
                 .id(sessionId)
                 .diary(diary)
@@ -261,24 +295,35 @@ class ChatServiceTest {
                 .encryptionContext(encryptionContext("session", 8))
                 .build();
         EncryptionContext msgEnc = encryptionContext("msg", 20);
+        FirstChatStreamContext streamContext = new FirstChatStreamContext(
+                sessionId,
+                userId,
+                LocalDateTime.now()
+        );
 
+        when(streamContextStore.get(streamId)).thenReturn(streamContext);
         when(userService.getActiveUser(userId)).thenReturn(user);
         when(chatSessionRepository.findWithDiaryAndUser(sessionId)).thenReturn(Optional.of(chatSession));
         when(chatMessageRepository.findAllByChatSessionWithEnc(chatSession)).thenReturn(List.of());
         when(aesGcmCryptoService.decryptWithAad("short-enc", diaryEnc.getAadHash())).thenReturn("plain");
-        when(openAIService.sendFirstChatMsg("persona", "script", diary.getEmotion(), "plain")).thenReturn("first-msg");
+        when(openAIService.sendFirstChatMsg(
+                "persona",
+                "script",
+                diary.getEmotion(),
+                "plain",
+                user.getNickname()
+        )).thenReturn(Flux.just("first-msg"));
         when(encryptionContextFactory.createContext(userId.toString())).thenReturn(msgEnc);
-        when(aesGcmCryptoService.encryptWithAad(eq("first-msg"), same(msgEnc.getAadHash()))).thenReturn("first-msg-enc");
-        when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
-            ChatMessage message = invocation.getArgument(0);
-            ReflectionTestUtils.setField(message, "id", 901L);
-            return message;
-        });
+        when(aesGcmCryptoService.encryptWithAad(eq("first-msg"), any(byte[].class))).thenReturn("first-msg-enc");
 
-        StartChatRes res = chatService.createFirstChat(sessionId, new StartChatReq(userId));
+        List<String> responses = chatService.createFirstChat(streamId)
+                .collectList()
+                .block();
 
-        assertThat(res.chatMsgId()).isEqualTo(901L);
-        assertThat(res.msg()).isEqualTo("first-msg");
+        assertThat(responses).containsExactly("LOADING", "first-msg");
+
+        verify(chatMessageRepository).save(any(ChatMessage.class));
+        verify(streamContextStore).remove(streamId);
     }
 
     @Test
@@ -315,6 +360,7 @@ class ChatServiceTest {
                 .createdAt(OffsetDateTime.now())
                 .build();
 
+        when(userService.getActiveUser(user.getId())).thenReturn(user);
         when(chatSessionRepository.findWithDiaryAndUser(sessionId)).thenReturn(Optional.of(chatSession));
         when(chatMessageRepository.findAllByChatSessionWithEnc(chatSession)).thenReturn(List.of(second, first));
         when(aesGcmCryptoService.decryptWithAad("enc-1", msgEnc1.getAadHash())).thenReturn("first");
