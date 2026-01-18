@@ -5,6 +5,8 @@ MME Bot 백엔드는 일기 기반 감정 케어 봇을 위한 Spring Boot REST 
 ## 주소
 [https://mmebot.me](https://mmebot.me)
 
+[API 문서](https://mmebot.me/dev/swagger-ui)
+
 ## 데모 영상
 
 https://github.com/user-attachments/assets/e5136d75-1ded-452d-a72e-eb8fe3833e55
@@ -78,7 +80,7 @@ docker compose up --build
 
 ## API 문서
 - SpringDoc이 자동 스캔하며 `OpenApiConfiguration`이 공통 응답/보안 스키마를 추가합니다.
-- 로컬 실행 후 Swagger UI는 `http://localhost:8000/swagger-ui`, OpenAPI JSON은 `/api/v1/api-docs`에서 확인합니다.
+- 로컬 실행 후 Swagger UI는 `https://mmebot.me/dev/swagger-ui` 에서 확인합니다.
 
 ## 테스트
 ```bash
