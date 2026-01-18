@@ -88,7 +88,7 @@ public class OpenAIService {
                                 .then(Mono.error(new RuntimeException("OpenAI error")))
                 )
                 .bodyToFlux(new ParameterizedTypeReference<ServerSentEvent<String>>() {})
-                .doOnNext(sse -> log.info("SSE RAW = {}", sse)) // 개발 로깅용
+                .doOnNext(sse -> log.debug("SSE RAW = {}", sse)) // 개발 로깅용
                 .flatMap(sse -> {
                     String data = sse.data();
                     if (!StringUtils.hasText(data) || data.contains("[DONE]")) {
@@ -117,7 +117,8 @@ public class OpenAIService {
             String chatStatus,
             String emotion,
             List<ChatMessage> chatMsgList,
-            String reqMsg
+            String reqMsg,
+            String nickname
     ) {
         String prompt = """
                 [페르소나 규칙]
@@ -140,13 +141,15 @@ public class OpenAIService {
                 
                 [입력]
                 사용자 기분:%s
+                사용자 이름:%s
                 위 내용을 기반으로 사용자의 마지막 메시지에 응답하라.
                 """.formatted(
                 botPersona,
                 botScript,
                 basicRules(),
                 chatStatus,
-                emotion
+                emotion,
+                nickname
         );
         return summarizeStream(buildMessages(prompt, chatMsgList, reqMsg));
     }
@@ -196,7 +199,8 @@ public class OpenAIService {
             String botPersona,
             String botScript,
             String emotion,
-            String diaryContent
+            String diaryContent,
+            String nickname
     ) {
         String prompt = """
                 [페르소나]
@@ -209,6 +213,7 @@ public class OpenAIService {
                 2.기분:%s
                 [입력]
                 사용자의 일기 기반 키워드:%s
+                사용자의 이름: %s
                 위 내용을 기반으로 사용자의 마지막 메시지에 응답하라.
                 대화의 마무리는 반드시 질문형 문장으로 끝나야 한다.
                 이 질문은 사용자의 현재 감정 상태를 확인하기 위한 개방형 질문이어야 하며, 일기 내용의 흐름에 자연스럽게 이어져야 한다.
@@ -217,7 +222,8 @@ public class OpenAIService {
                 botScript,
                 basicRules(),
                 emotion,
-                diaryContent
+                diaryContent,
+                nickname
         );
         return summarizeStream(buildMessages(prompt, Collections.emptyList(), "대화 시작"));
     }
@@ -321,13 +327,12 @@ public class OpenAIService {
                 6) 키워드를 반복 나열하거나 설명하지 않고, **맥락 안에서 자연스럽게 녹여낸다.**
                 
                 [대화 규칙]
-                1) 사용자는 반드시 "{user}" 으로 호칭하며 뒤에 조사(은/는/이/가/을/를 등)는 절대 붙이지 않는다.
-                2) 아래 "대화 기록(JSON)" 은 지금까지의 대화 맥락이다.
-                3) 대화 기록은 말투 일관성과 맥락 이해를 위한 참고자료이며, 직접 복사하거나 상세하게 재언급하지 않는다.
-                4) "최근 사용자 메시지"에 대해 응답한다.
-                5) Assistant 응답만 출력하며 JSON 형식으로 출력하지 않는다.
-                6) 답변은 공백 포함 500자를 넘지 않는다.
-                7) 모든 규칙과 톤은 절대 깨지지 않는다.
+                1) 아래 "대화 기록(JSON)" 은 지금까지의 대화 맥락이다.
+                2) 대화 기록은 말투 일관성과 맥락 이해를 위한 참고자료이며, 직접 복사하거나 상세하게 재언급하지 않는다.
+                3) "최근 사용자 메시지"에 대해 응답한다.
+                4) Assistant 응답만 출력하며 JSON 형식으로 출력하지 않는다.
+                5) 답변은 공백 포함 500자를 넘지 않는다.
+                6) 모든 규칙과 톤은 절대 깨지지 않는다.
                 
                 [추가 규칙]
                 - [대화 상태] 가 “FINAL”일 경우 대화를 마무리 짓는다.

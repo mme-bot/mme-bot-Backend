@@ -36,7 +36,7 @@ public class ChatController {
         return chatService.createChatSession(req);
     }
 
-    @PostMapping("/{chatSessionId}/message/start")
+    @PostMapping("/{chatSessionId}/messages/start")
     public StartChatInitRes initFirstChatMsg(
             @RequestBody StartChatReq req,
             @RequestParam Long chatSessionId
@@ -52,7 +52,7 @@ public class ChatController {
         return new StartChatInitRes(streamId);
     }
 
-    @GetMapping(value = "/stream/message/start", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/stream/messages/start", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> firstChatStream(@RequestParam String streamId) {
         return chatService.createFirstChat(streamId);
     }

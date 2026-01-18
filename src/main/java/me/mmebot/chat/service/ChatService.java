@@ -164,7 +164,8 @@ public class ChatService {
                 chatStatus.name(),
                 diary.getEmotion(),
                 chatMsgList,
-                msg)
+                msg,
+                user.getNickname())
                 .doOnNext(fullMsg::append) // 토큰 누적
                 .doOnComplete(() -> {
                     saveChatMsgStream(chatSession, user, msg, fullMsg.toString(), replyMsg);
@@ -179,7 +180,7 @@ public class ChatService {
 
         log.info("bot msg : {}", fullMsg);
         return Flux.concat(
-                        Flux.just("음… 잠깐만 생각해볼게요.\n"),
+                        Flux.just("LOADING"),
                         aiStream
                 ).subscribeOn(Schedulers.boundedElastic())
                 .onErrorResume(e -> {
@@ -260,7 +261,7 @@ public class ChatService {
          */
         FirstChatStreamContext streamContext = (FirstChatStreamContext) streamContextStore.get(streamId);
         if (streamContext == null) {
-            return Flux.just("스트림 정보가 만료되었어요. 다시 시도해주세요.");
+            return Flux.just("ERROR");
         }
         Long chatSessionId = streamContext.chatSessionId();
         Long userId = streamContext.userId();
@@ -296,7 +297,8 @@ public class ChatService {
                 bot.getPersona(),
                 bot.getScript(),
                 diary.getEmotion(),
-                content)
+                content,
+                user.getNickname())
                 .doOnNext(fullMsg::append) // 토큰 누적
                 .doOnComplete(() -> {
                     // 3. 스트림 끝난 뒤 DB 저장 (⭐ 중요)
@@ -307,7 +309,7 @@ public class ChatService {
                 );
 
         return Flux.concat(
-                Flux.just("음… 잠깐만 생각해볼게요.\n"),
+                Flux.just("LOADING"),
                 aiStream
         ).subscribeOn(Schedulers.boundedElastic())
                 .onErrorResume(e -> {
