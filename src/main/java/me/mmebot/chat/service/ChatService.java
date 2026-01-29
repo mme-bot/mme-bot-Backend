@@ -10,6 +10,7 @@ import me.mmebot.chat.domain.ChatStatus;
 import me.mmebot.chat.exception.ChatException;
 import me.mmebot.chat.repository.ChatMessageRepository;
 import me.mmebot.chat.repository.ChatSessionRepository;
+import me.mmebot.chat.queue.ChatPersistenceQueueService;
 import me.mmebot.common.crypto.AesGcmCryptoService;
 import me.mmebot.core.domain.EncryptionContext;
 import me.mmebot.core.service.EncryptionContextFactory;
@@ -49,6 +50,7 @@ public class ChatService {
     private final AesGcmCryptoService aesGcmCryptoService;
     private final EncryptionContextFactory encryptionContextFactory;
     private final StreamContextStore streamContextStore;
+    private final ChatPersistenceQueueService chatPersistenceQueueService;
 
     public CreateChatSessionRes createChatSession(CreateChatSessionReq req) {
         Diary diary = diaryService.getActiveDiary(req.diaryId());
@@ -158,6 +160,9 @@ public class ChatService {
         Diary diary = chatSession.getDiary();
 //        String diaryShortEnc = diary.getSummaryShort();
         StringBuilder fullMsg = new StringBuilder();
+        final int userMessageSeq = replyMsg.getSeq() + 1;
+        final int assistantMessageSeq = userMessageSeq + 1;
+
         Flux<String> aiStream = openAiService.sendChatMessage(
                 user.getBot().getPersona(),
                 user.getBot().getScript(),
@@ -168,10 +173,19 @@ public class ChatService {
                 user.getNickname())
                 .doOnNext(fullMsg::append) // 토큰 누적
                 .doOnComplete(() -> {
-                    saveChatMsgStream(chatSession, user, msg, fullMsg.toString(), replyMsg);
+                    saveChatMessagePair(chatSession, user, replyMsg, msg, fullMsg.toString());
                 })
                 .doOnError(throwable -> {
-                    // enqueueMsg 로직 추가해야 함 (레디스 사용)하여 주기적으로 saveChatMsgStream 호출해야 함
+                    chatPersistenceQueueService.enqueueChatMessagePairFallback(
+                            chatSession.getId(),
+                            user.getId(),
+                            replyMsg.getId(),
+                            userMessageSeq,
+                            assistantMessageSeq,
+                            msg,
+                            fullMsg.toString(),
+                            throwable
+                    );
                 })
                 .doFinally( doOnFinally ->
                         streamContextStore.remove(streamId)
@@ -181,20 +195,32 @@ public class ChatService {
         log.info("bot msg : {}", fullMsg);
         return Flux.concat(
                         Flux.just("LOADING"),
-                        aiStream
+                        aiStream,
+                        Flux.just("[DONE]")
                 ).subscribeOn(Schedulers.boundedElastic())
                 .onErrorResume(e -> {
                     return Flux.just("문제가 발생했어요." + e.getMessage());
                 });
     }
 
-    private void saveChatMsgStream(
+    public void saveChatMessagePair(
             ChatSession chatSession,
             User user,
+            ChatMessage replyMsg,
             String userMsg,
-            String botMsg,
-            ChatMessage replyMsg
+            String botMsg
     ) {
+        int userSeq = replyMsg.getSeq() + 1;
+        int assistantSeq = userSeq + 1;
+        if (chatMsgRepository.existsByChatSessionIdAndSeq(chatSession.getId(), userSeq)
+                || chatMsgRepository.existsByChatSessionIdAndSeq(chatSession.getId(), assistantSeq)) {
+            log.debug("Chat message pair already exists for session {} seqs [{}, {}] - skipping",
+                    chatSession.getId(),
+                    userSeq,
+                    assistantSeq);
+            return;
+        }
+
         EncryptionContext context = encryptionContextFactory.createContext(user.getId().toString());
         String reqMsgEnc = aesGcmCryptoService.encryptWithAad(userMsg, context.getAadHash());
         String resMsgEnc = aesGcmCryptoService.encryptWithAad(botMsg, context.getAadHash());
@@ -202,7 +228,7 @@ public class ChatService {
         ChatMessage reqMsg = getChatMessage(
                 reqMsgEnc,
                 chatSession,
-                replyMsg.getSeq() + 1,
+                userSeq,
                 ChatMessageRole.USER,
                 context,
                 replyMsg
@@ -210,7 +236,7 @@ public class ChatService {
         ChatMessage resMsg = getChatMessage(
                 resMsgEnc,
                 chatSession,
-                replyMsg.getSeq() + 2,
+                assistantSeq,
                 ChatMessageRole.ASSISTANT,
                 context,
                 reqMsg
@@ -291,6 +317,7 @@ public class ChatService {
 
         Bot bot = user.getBot();
         StringBuilder fullMsg = new StringBuilder();
+        final int firstMessageOrder = 1;
 
 //        String resMsg = openAiService.sendFirstChatMsg(
         Flux<String> aiStream = openAiService.sendFirstChatMsg(
@@ -304,27 +331,42 @@ public class ChatService {
                     // 3. 스트림 끝난 뒤 DB 저장 (⭐ 중요)
                     saveFirstMessage(chatSession, user, fullMsg.toString());
                 })
+                .doOnError(throwable -> {
+                    chatPersistenceQueueService.enqueueFirstMessageFallback(
+                            chatSession.getId(),
+                            user.getId(),
+                            firstMessageOrder,
+                            fullMsg.toString(),
+                            throwable
+                    );
+                })
                 .doFinally( doOnFinally ->
                         streamContextStore.remove(streamId)
                 );
 
         return Flux.concat(
-                Flux.just("LOADING"),
-                aiStream
-        ).subscribeOn(Schedulers.boundedElastic())
+                        Flux.just("[LOADING]"),
+                        aiStream,
+                        Flux.just("[DONE]")
+                ).subscribeOn(Schedulers.boundedElastic())
                 .onErrorResume(e -> {
                     return Flux.just("문제가 발생했어요." + e.getMessage());
                 });
     }
 
     public void saveFirstMessage(ChatSession chatSession, User user, String resMsg) {
+        final int messageOrder = 1;
+        if (chatMsgRepository.existsByChatSessionIdAndSeq(chatSession.getId(), messageOrder)) {
+            log.debug("First chat message already exists for session {} - skipping", chatSession.getId());
+            return;
+        }
         EncryptionContext msgEncContext = encryptionContextFactory.createContext(user.getId().toString());
         String resMsgEnc = aesGcmCryptoService.encryptWithAad(resMsg, msgEncContext.getAadHash());
 
         ChatMessage chatMessage = getChatMessage(
                 resMsgEnc,
                 chatSession,
-                1,
+                messageOrder,
                 ChatMessageRole.ASSISTANT,
                 msgEncContext,
                 null

@@ -19,6 +19,8 @@ import org.hibernate.annotations.CreationTimestamp;
 @Entity
 @Table(name = DatabaseNames.Tables.CHAT_MESSAGE, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
         @Index(name = "idx_chat_message_session_seq", columnList = "chat_session_id, seq")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_chat_message_session_seq", columnNames = {"chat_session_id", "seq"})
 })
 public class ChatMessage {
 

@@ -6,6 +6,7 @@ import com.openai.client.OpenAIClient;
 import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.chat.domain.ChatMessage;
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Service
@@ -70,6 +72,8 @@ public class OpenAIService {
     }
 
     public Flux<String> summarizeStream(List<Map<String, String>> content) {
+        AtomicLong seq = new AtomicLong();
+
         return openAiWebClient.post()
                 .uri("/chat/completions")
                 .bodyValue(Map.of(
@@ -92,6 +96,12 @@ public class OpenAIService {
                         return Flux.empty();
                     }
                     return extractDelta(data);
+                })
+                .map(contentPiece -> {
+                    ObjectNode node = objectMapper.createObjectNode();
+                    node.put("seq", seq.getAndIncrement());
+                    node.put("content", contentPiece);
+                    return node.toString();
                 });
     }
 

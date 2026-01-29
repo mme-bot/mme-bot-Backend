@@ -191,7 +191,8 @@ CREATE TABLE mmebot.chat_message (
         REFERENCES mmebot.chat_session (chat_session_id)
         ON DELETE CASCADE,
     CONSTRAINT fk_chat_message_enc FOREIGN KEY (encryption_context_id)
-        REFERENCES mmebot.encryption_contexts (encryption_context_id)
+        REFERENCES mmebot.encryption_contexts (encryption_context_id),
+    CONSTRAINT uk_chat_message_session_seq UNIQUE (chat_session_id, seq)
 );
 CREATE INDEX idx_chat_message_session_seq ON mmebot.chat_message (chat_session_id, seq);
 
