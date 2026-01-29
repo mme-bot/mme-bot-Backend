@@ -1,11 +1,8 @@
 package me.mmebot.stream;
 
-import org.springframework.stereotype.Component;
-
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Component
 public class InMemoryStreamContextStore implements StreamContextStore {
 
     private final Map<String, StreamContext> store = new ConcurrentHashMap<>();
