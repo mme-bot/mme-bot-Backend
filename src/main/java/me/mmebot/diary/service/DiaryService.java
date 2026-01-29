@@ -31,7 +31,6 @@ public class DiaryService {
     private final OpenAIService openAiService;
 
     public CreateDiaryRes createDiary(CreateDiaryRequest request) {
-        log.info("Creating diary for user {} on {}", request.userId(), request.date());
         User user = userService.getActiveUser(request.userId());
         ensureUniqueDiaryDate(user.getId(), request.date());
 

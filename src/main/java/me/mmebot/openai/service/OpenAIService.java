@@ -6,6 +6,7 @@ import com.openai.client.OpenAIClient;
 import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.chat.domain.ChatMessage;
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Service
@@ -53,9 +55,6 @@ public class OpenAIService {
 
     private Flux<String> extractDelta(String raw) {
         return Flux.fromArray(raw.split("\n"))
-                .filter(line -> line.startsWith("data:"))
-                .map(line -> line.substring(6)) // "data: " 제거
-                .filter(line -> !line.contains("[DONE]"))
                 .flatMap(json -> {
                     try {
                         JsonNode node = objectMapper.readTree(json);
@@ -73,6 +72,8 @@ public class OpenAIService {
     }
 
     public Flux<String> summarizeStream(List<Map<String, String>> content) {
+        AtomicLong seq = new AtomicLong();
+
         return openAiWebClient.post()
                 .uri("/chat/completions")
                 .bodyValue(Map.of(
@@ -91,10 +92,16 @@ public class OpenAIService {
                 .doOnNext(sse -> log.debug("SSE RAW = {}", sse)) // 개발 로깅용
                 .flatMap(sse -> {
                     String data = sse.data();
-                    if (!StringUtils.hasText(data) || data.contains("[DONE]")) {
+                    if (!StringUtils.hasText(data)) {
                         return Flux.empty();
                     }
-                    return extractDelta("data: " + data);
+                    return extractDelta(data);
+                })
+                .map(contentPiece -> {
+                    ObjectNode node = objectMapper.createObjectNode();
+                    node.put("seq", seq.getAndIncrement());
+                    node.put("content", contentPiece);
+                    return node.toString();
                 });
     }
 
