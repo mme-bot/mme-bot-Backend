@@ -53,9 +53,6 @@ public class OpenAIService {
 
     private Flux<String> extractDelta(String raw) {
         return Flux.fromArray(raw.split("\n"))
-                .filter(line -> line.startsWith("data:"))
-                .map(line -> line.substring(6)) // "data: " 제거
-                .filter(line -> !line.contains("[DONE]"))
                 .flatMap(json -> {
                     try {
                         JsonNode node = objectMapper.readTree(json);
@@ -91,10 +88,10 @@ public class OpenAIService {
                 .doOnNext(sse -> log.debug("SSE RAW = {}", sse)) // 개발 로깅용
                 .flatMap(sse -> {
                     String data = sse.data();
-                    if (!StringUtils.hasText(data) || data.contains("[DONE]")) {
+                    if (!StringUtils.hasText(data)) {
                         return Flux.empty();
                     }
-                    return extractDelta("data: " + data);
+                    return extractDelta(data);
                 });
     }
 
