@@ -2,6 +2,8 @@ package me.mmebot.chat.service;
 
 import me.mmebot.bot.domain.Bot;
 import me.mmebot.chat.api.dto.ChatMsgRes.ChatMsg;
+import me.mmebot.chat.api.dto.ChatMsgRes.ChatStreamPayload;
+import me.mmebot.chat.api.dto.ChatMsgRes.StreamStatus;
 import me.mmebot.chat.api.dto.ChatSessionReq.CreateChatSessionReq;
 import me.mmebot.chat.api.dto.ChatSessionRes.CreateChatSessionRes;
 import me.mmebot.chat.domain.ChatMessage;
@@ -64,7 +66,6 @@ class ChatServiceTest {
     private EncryptionContextFactory encryptionContextFactory;
     @Mock
     private StreamContextStore streamContextStore;
-
     @InjectMocks
     private ChatService chatService;
 
@@ -174,11 +175,17 @@ class ChatServiceTest {
             return msg;
         });
 
-        List<String> responses = chatService.createChatMessage(streamId)
+        List<ChatStreamPayload> responses = chatService.createChatMessage(streamId)
                 .collectList()
                 .block();
 
-        assertThat(responses).containsExactly("LOADING", "테스트");
+        assertThat(responses).hasSize(3);
+        assertThat(responses.get(0).status()).isEqualTo(StreamStatus.LOADING);
+        assertThat(responses.get(1).status()).isEqualTo(StreamStatus.STREAMING);
+        assertThat(responses.get(1).seq()).isEqualTo(1);
+        assertThat(responses.get(1).content()).isEqualTo("테스트");
+        assertThat(responses.get(2).status()).isEqualTo(StreamStatus.DONE);
+        assertThat(responses.get(2).msgId()).isEqualTo(303L);
 
         verify(chatMessageRepository, times(2)).save(any(ChatMessage.class));
         verify(streamContextStore).remove(streamId);
@@ -315,12 +322,23 @@ class ChatServiceTest {
         )).thenReturn(Flux.just("first-msg"));
         when(encryptionContextFactory.createContext(userId.toString())).thenReturn(msgEnc);
         when(aesGcmCryptoService.encryptWithAad(eq("first-msg"), any(byte[].class))).thenReturn("first-msg-enc");
+        when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
+            ChatMessage message = invocation.getArgument(0);
+            ReflectionTestUtils.setField(message, "id", 100L + message.getSeq());
+            return message;
+        });
 
-        List<String> responses = chatService.createFirstChat(streamId)
+        List<ChatStreamPayload> responses = chatService.createFirstChat(streamId)
                 .collectList()
                 .block();
 
-        assertThat(responses).containsExactly("LOADING", "first-msg");
+        assertThat(responses).hasSize(3);
+        assertThat(responses.get(0).status()).isEqualTo(StreamStatus.LOADING);
+        assertThat(responses.get(1).status()).isEqualTo(StreamStatus.STREAMING);
+        assertThat(responses.get(1).seq()).isEqualTo(1);
+        assertThat(responses.get(1).content()).isEqualTo("first-msg");
+        assertThat(responses.get(2).status()).isEqualTo(StreamStatus.DONE);
+        assertThat(responses.get(2).msgId()).isEqualTo(101L);
 
         verify(chatMessageRepository).save(any(ChatMessage.class));
         verify(streamContextStore).remove(streamId);
