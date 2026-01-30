@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.chat.api.dto.ChatMsgReq.CreateChatMsgReq;
 import me.mmebot.chat.api.dto.ChatMsgRes.ChatMsg;
+import me.mmebot.chat.api.dto.ChatMsgRes.ChatStreamPayload;
 import me.mmebot.chat.api.dto.ChatMsgRes.StartChatInitRes;
 import me.mmebot.chat.service.ChatService;
 import me.mmebot.stream.StreamContextStore;
@@ -53,7 +54,7 @@ public class ChatController {
     }
 
     @GetMapping(value = "/stream/messages/start", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> firstChatStream(@RequestParam String streamId) {
+    public Flux<ChatStreamPayload> firstChatStream(@RequestParam String streamId) {
         return chatService.createFirstChat(streamId);
     }
 
@@ -86,7 +87,7 @@ public class ChatController {
     }
 
     @GetMapping(value = "/stream/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> chatStream(@RequestParam String streamId) {
+    public Flux<ChatStreamPayload> chatStream(@RequestParam String streamId) {
         return chatService.createChatMessage(streamId);
     }
 //    @PostMapping("/{chatSessionId}/messages")

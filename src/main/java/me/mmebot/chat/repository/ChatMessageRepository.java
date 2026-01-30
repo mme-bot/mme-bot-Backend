@@ -21,4 +21,6 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     List<ChatMessage> findAllByReplyMsgId(Long replyMsgId);
 
     boolean existsByChatSessionIdAndSeq(Long chatSessionId, Integer seq);
+
+    Optional<ChatMessage> findByChatSessionIdAndSeq(Long chatSessionId, Integer seq);
 }
