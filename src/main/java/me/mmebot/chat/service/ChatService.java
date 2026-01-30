@@ -88,9 +88,9 @@ public class ChatService {
                 .status(ChatSessionStatus.ACTIVE)
                 .encryptionContext(context)
                 .build();
-        
+
         saveChatSession(chatSession);
-        
+
         return new CreateChatSessionRes(chatSession.getId());
     }
 
@@ -101,7 +101,7 @@ public class ChatService {
     private Optional<ChatMessageEntity> getChatMsg(Long chatMessageId) {
         return chatMsgRepository.findById(chatMessageId);
     }
-    
+
     protected void saveChatSession(ChatSessionEntity chatSession) {
         chatSessionRepository.save(chatSession);
     }
@@ -175,35 +175,35 @@ public class ChatService {
         Flux<ChatStreamResponse> aiStream = openAiService.sendChatMessage(prompt, chatMsgList, msg);
 
         Flux<ChatStreamPayload> responseStream = aiStream
-            .doOnNext(response -> fullMsg.append(response.content()))
-            .doOnComplete(() -> {
-                 ChatMessagePair savedAssistantMsg = saveChatMessagePair(chatSession, user, replyMsg, msg, fullMsg.toString());
-                 setSavedMsgId(
-                        savedMsgIdRef,
-                        savedAssistantMsg.assistantMessage(),
-                        "Assistant message was not persisted for streamId=" + streamId
-                 );
-            })
-            .doOnError(throwable -> {
-                 chatPersistenceQueueService.enqueueChatMessagePairFallback(
-                        chatSession.getId(),
-                        user.getId(),
-                        replyMsg.getId(),
-                        userMessageSeq,
-                        assistantMessageSeq,
-                        msg,
-                        fullMsg.toString(),
-                        throwable
-                 );
-            })
-            .doFinally(signal -> streamContextStore.remove(streamId))
-            .map(response -> {
-                try {
-                    return ChatStreamPayload.streaming(objectMapper.writeValueAsString(response));
-                } catch (JsonProcessingException e) {
-                    throw new RuntimeException("Failed to serialize ChatStreamResponse", e);
-                }
-            });
+                .doOnNext(response -> fullMsg.append(response.content()))
+                .doOnComplete(() -> {
+                    ChatMessagePair savedAssistantMsg = saveChatMessagePair(chatSession, user, replyMsg, msg, fullMsg.toString());
+                    setSavedMsgId(
+                            savedMsgIdRef,
+                            savedAssistantMsg.assistantMessage(),
+                            "Assistant message was not persisted for streamId=" + streamId
+                    );
+                })
+                .doOnError(throwable -> {
+                    chatPersistenceQueueService.enqueueChatMessagePairFallback(
+                            chatSession.getId(),
+                            user.getId(),
+                            replyMsg.getId(),
+                            userMessageSeq,
+                            assistantMessageSeq,
+                            msg,
+                            fullMsg.toString(),
+                            throwable
+                    );
+                })
+                .doFinally(signal -> streamContextStore.remove(streamId))
+                .map(response -> {
+                    try {
+                        return ChatStreamPayload.streaming(objectMapper.writeValueAsString(response));
+                    } catch (JsonProcessingException e) {
+                        throw new RuntimeException("Failed to serialize ChatStreamResponse", e);
+                    }
+                });
 
         return Flux.concat(
                         Flux.just(ChatStreamPayload.loading()),
@@ -412,7 +412,7 @@ public class ChatService {
 
         UserEntity user = userService.getActiveUser(userId);
         ChatSessionEntity chatSession = getChatSessionWithDiaryAndUserById(chatSessionId).orElseThrow(() ->
-            ChatException.chatSessionNotFound(chatSessionId));
+                ChatException.chatSessionNotFound(chatSessionId));
 
         // 유저 검증
         if (!user.equals(chatSession.getDiary().getUser())) {
@@ -441,35 +441,35 @@ public class ChatService {
 
         String prompt = buildFirstMessagePrompt(user, content);
         Flux<ChatStreamResponse> aiStream = openAiService.sendFirstChatMsg(prompt);
-                
+
         Flux<ChatStreamPayload> responseStream = aiStream
-            .doOnNext(response -> fullMsg.append(response.content()))
-            .doOnComplete(() -> {
-                // 3. 스트림 끝난 뒤 DB 저장 (⭐ 중요)
-                ChatMessageEntity savedMsg = saveFirstMessage(chatSession, user, fullMsg.toString());
-                setSavedMsgId(
-                        savedMsgIdRef,
-                        savedMsg,
-                        "First assistant message was not persisted for streamId=" + streamId
-                );
-            })
-            .doOnError(throwable -> {
-                chatPersistenceQueueService.enqueueFirstMessageFallback(
-                        chatSession.getId(),
-                        user.getId(),
-                        firstMessageOrder,
-                        fullMsg.toString(),
-                        throwable
-                );
-            })
-            .doFinally(signal -> streamContextStore.remove(streamId))
-            .map(response -> {
-                try {
-                    return ChatStreamPayload.streaming(objectMapper.writeValueAsString(response));
-                } catch (JsonProcessingException e) {
-                    throw new RuntimeException("Failed to serialize ChatStreamResponse", e);
-                }
-            });
+                .doOnNext(response -> fullMsg.append(response.content()))
+                .doOnComplete(() -> {
+                    // 3. 스트림 끝난 뒤 DB 저장 (⭐ 중요)
+                    ChatMessageEntity savedMsg = saveFirstMessage(chatSession, user, fullMsg.toString());
+                    setSavedMsgId(
+                            savedMsgIdRef,
+                            savedMsg,
+                            "First assistant message was not persisted for streamId=" + streamId
+                    );
+                })
+                .doOnError(throwable -> {
+                    chatPersistenceQueueService.enqueueFirstMessageFallback(
+                            chatSession.getId(),
+                            user.getId(),
+                            firstMessageOrder,
+                            fullMsg.toString(),
+                            throwable
+                    );
+                })
+                .doFinally(signal -> streamContextStore.remove(streamId))
+                .map(response -> {
+                    try {
+                        return ChatStreamPayload.streaming(objectMapper.writeValueAsString(response));
+                    } catch (JsonProcessingException e) {
+                        throw new RuntimeException("Failed to serialize ChatStreamResponse", e);
+                    }
+                });
 
         return Flux.concat(
                         Flux.just(ChatStreamPayload.loading()),
