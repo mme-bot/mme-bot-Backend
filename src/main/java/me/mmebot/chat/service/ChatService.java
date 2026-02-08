@@ -1,5 +1,7 @@
 package me.mmebot.chat.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.bot.domain.Bot;
@@ -17,6 +19,7 @@ import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.diary.domain.Diary;
 import me.mmebot.diary.service.DiaryService;
 import me.mmebot.openai.dto.ChatMessageRole;
+import me.mmebot.openai.dto.ChatStreamResponse;
 import me.mmebot.openai.service.OpenAIService;
 import me.mmebot.stream.StreamContextStore;
 import me.mmebot.user.domain.User;
@@ -31,7 +34,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static me.mmebot.chat.api.dto.ChatMsgRes.*;
@@ -53,6 +55,7 @@ public class ChatService {
     private final EncryptionContextFactory encryptionContextFactory;
     private final StreamContextStore streamContextStore;
     private final ChatPersistenceQueueService chatPersistenceQueueService;
+    private final ObjectMapper objectMapper;
 
     public CreateChatSessionRes createChatSession(CreateChatSessionReq req) {
         Diary diary = diaryService.getActiveDiary(req.diaryId());
@@ -166,48 +169,50 @@ public class ChatService {
         final int assistantMessageSeq = userMessageSeq + 1;
 
         AtomicReference<Long> savedMsgIdRef = new AtomicReference<>();
-        AtomicInteger chunkSeq = new AtomicInteger();
 
-        Flux<String> aiStream = openAiService.sendChatMessage(
+        Flux<ChatStreamResponse> aiStream = openAiService.sendChatMessage(
                 user.getBot().getPersona(),
                 user.getBot().getScript(),
                 chatStatus.name(),
                 diary.getEmotion(),
                 chatMsgList,
                 msg,
-                user.getNickname())
-                .doOnNext(fullMsg::append) // 토큰 누적
-                .doOnComplete(() -> {
-                    ChatMessage savedAssistantMsg = saveChatMessagePair(chatSession, user, replyMsg, msg, fullMsg.toString());
-                    setSavedMsgId(
-                            savedMsgIdRef,
-                            savedAssistantMsg,
-                            "Assistant message was not persisted for streamId=" + streamId
-                    );
-                })
-                .doOnError(throwable -> {
-                    chatPersistenceQueueService.enqueueChatMessagePairFallback(
-                            chatSession.getId(),
-                            user.getId(),
-                            replyMsg.getId(),
-                            userMessageSeq,
-                            assistantMessageSeq,
-                            msg,
-                            fullMsg.toString(),
-                            throwable
-                    );
-                })
-                .doFinally( doOnFinally ->
-                        streamContextStore.remove(streamId)
-                );
+                user.getNickname());
 
-
-        log.info("bot msg : {}", fullMsg);
-        Flux<ChatStreamPayload> streamingResponses = aiStream.map(chunk -> ChatStreamPayload.streaming(chunkSeq.incrementAndGet(), chunk));
+        Flux<ChatStreamPayload> responseStream = aiStream
+            .doOnNext(response -> fullMsg.append(response.content()))
+            .doOnComplete(() -> {
+                 ChatMessage savedAssistantMsg = saveChatMessagePair(chatSession, user, replyMsg, msg, fullMsg.toString());
+                 setSavedMsgId(
+                        savedMsgIdRef,
+                        savedAssistantMsg,
+                        "Assistant message was not persisted for streamId=" + streamId
+                 );
+            })
+            .doOnError(throwable -> {
+                 chatPersistenceQueueService.enqueueChatMessagePairFallback(
+                        chatSession.getId(),
+                        user.getId(),
+                        replyMsg.getId(),
+                        userMessageSeq,
+                        assistantMessageSeq,
+                        msg,
+                        fullMsg.toString(),
+                        throwable
+                 );
+            })
+            .doFinally(signal -> streamContextStore.remove(streamId))
+            .map(response -> {
+                try {
+                    return ChatStreamPayload.streaming(objectMapper.writeValueAsString(response));
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException("Failed to serialize ChatStreamResponse", e);
+                }
+            });
 
         return Flux.concat(
                         Flux.just(ChatStreamPayload.loading()),
-                        streamingResponses,
+                        responseStream,
                         Flux.defer(() -> Flux.just(
                                 buildDoneSignal(
                                         savedMsgIdRef,
@@ -336,43 +341,47 @@ public class ChatService {
         final int firstMessageOrder = 1;
 
         AtomicReference<Long> savedMsgIdRef = new AtomicReference<>();
-        AtomicInteger chunkSeq = new AtomicInteger();
 
 //        String resMsg = openAiService.sendFirstChatMsg(
-        Flux<String> aiStream = openAiService.sendFirstChatMsg(
+        Flux<ChatStreamResponse> aiStream = openAiService.sendFirstChatMsg(
                 bot.getPersona(),
                 bot.getScript(),
                 diary.getEmotion(),
                 content,
-                user.getNickname())
-                .doOnNext(fullMsg::append) // 토큰 누적
-                .doOnComplete(() -> {
-                    // 3. 스트림 끝난 뒤 DB 저장 (⭐ 중요)
-                    ChatMessage savedMsg = saveFirstMessage(chatSession, user, fullMsg.toString());
-                    setSavedMsgId(
-                            savedMsgIdRef,
-                            savedMsg,
-                            "First assistant message was not persisted for streamId=" + streamId
-                    );
-                })
-                .doOnError(throwable -> {
-                    chatPersistenceQueueService.enqueueFirstMessageFallback(
-                            chatSession.getId(),
-                            user.getId(),
-                            firstMessageOrder,
-                            fullMsg.toString(),
-                            throwable
-                    );
-                })
-                .doFinally( doOnFinally ->
-                        streamContextStore.remove(streamId)
+                user.getNickname());
+                
+        Flux<ChatStreamPayload> responseStream = aiStream
+            .doOnNext(response -> fullMsg.append(response.content()))
+            .doOnComplete(() -> {
+                // 3. 스트림 끝난 뒤 DB 저장 (⭐ 중요)
+                ChatMessage savedMsg = saveFirstMessage(chatSession, user, fullMsg.toString());
+                setSavedMsgId(
+                        savedMsgIdRef,
+                        savedMsg,
+                        "First assistant message was not persisted for streamId=" + streamId
                 );
-
-        Flux<ChatStreamPayload> streamingResponses = aiStream.map(chunk -> ChatStreamPayload.streaming(chunkSeq.incrementAndGet(), chunk));
+            })
+            .doOnError(throwable -> {
+                chatPersistenceQueueService.enqueueFirstMessageFallback(
+                        chatSession.getId(),
+                        user.getId(),
+                        firstMessageOrder,
+                        fullMsg.toString(),
+                        throwable
+                );
+            })
+            .doFinally(signal -> streamContextStore.remove(streamId))
+            .map(response -> {
+                try {
+                    return ChatStreamPayload.streaming(objectMapper.writeValueAsString(response));
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException("Failed to serialize ChatStreamResponse", e);
+                }
+            });
 
         return Flux.concat(
                         Flux.just(ChatStreamPayload.loading()),
-                        streamingResponses,
+                        responseStream,
                         Flux.defer(() -> Flux.just(
                                 buildDoneSignal(
                                         savedMsgIdRef,

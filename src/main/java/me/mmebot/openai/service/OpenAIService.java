@@ -1,5 +1,6 @@
 package me.mmebot.openai.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
@@ -12,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import me.mmebot.chat.domain.ChatMessage;
 import me.mmebot.common.KoreanTextAnalyzer;
 import me.mmebot.openai.dto.ChatMessageRole;
+import me.mmebot.openai.dto.ChatStreamResponse;
 import me.mmebot.openai.exception.OpenAIException;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;
@@ -55,8 +57,11 @@ public class OpenAIService {
 
     private Flux<String> extractDelta(String raw) {
         return Flux.fromArray(raw.split("\n"))
-                .flatMap(json -> {
+                .concatMap(json -> {
                     try {
+                        if ("[DONE]".equals(json.trim())) {
+                            return Flux.empty();
+                        }
                         JsonNode node = objectMapper.readTree(json);
                         JsonNode delta = node.at("/choices/0/delta");
 
@@ -71,7 +76,7 @@ public class OpenAIService {
                 });
     }
 
-    public Flux<String> summarizeStream(List<Map<String, String>> content) {
+    public Flux<ChatStreamResponse> summarizeStream(List<Map<String, String>> content) {
         AtomicLong seq = new AtomicLong();
 
         return openAiWebClient.post()
@@ -90,19 +95,17 @@ public class OpenAIService {
                 )
                 .bodyToFlux(new ParameterizedTypeReference<ServerSentEvent<String>>() {})
                 .doOnNext(sse -> log.debug("SSE RAW = {}", sse)) // 개발 로깅용
-                .flatMap(sse -> {
+                .concatMap(sse -> {
                     String data = sse.data();
                     if (!StringUtils.hasText(data)) {
                         return Flux.empty();
                     }
+                    if ("[DONE]".equals(data.trim())) {
+                        return Flux.empty();
+                    }
                     return extractDelta(data);
                 })
-                .map(contentPiece -> {
-                    ObjectNode node = objectMapper.createObjectNode();
-                    node.put("seq", seq.getAndIncrement());
-                    node.put("content", contentPiece);
-                    return node.toString();
-                });
+                .map(contentPiece -> new ChatStreamResponse(seq.getAndIncrement(), contentPiece));
     }
 
     private String summarize(String prompt) {
@@ -118,7 +121,7 @@ public class OpenAIService {
         );
     }
 
-    public Flux<String> sendChatMessage(
+    public Flux<ChatStreamResponse> sendChatMessage(
             String botPersona,
             String botScript,
             String chatStatus,
@@ -202,7 +205,7 @@ public class OpenAIService {
     }
 
 
-    public Flux<String> sendFirstChatMsg(
+    public Flux<ChatStreamResponse> sendFirstChatMsg(
             String botPersona,
             String botScript,
             String emotion,

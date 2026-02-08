@@ -1,5 +1,6 @@
 package me.mmebot.chat.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonRawValue;
 import me.mmebot.openai.dto.ChatMessageRole;
 
 public class ChatMsgRes {
@@ -29,25 +30,25 @@ public class ChatMsgRes {
 
     public record ChatStreamPayload(
             StreamStatus status,
-            Integer seq,
-            String content,
+            @JsonRawValue
+            String content, // JSON String {seq: 1, content: "..."}
             Long msgId,
             String message
     ) {
         public static ChatStreamPayload loading() {
-            return new ChatStreamPayload(StreamStatus.LOADING, null, null, null, null);
+            return new ChatStreamPayload(StreamStatus.LOADING, null, null, null);
         }
 
-        public static ChatStreamPayload streaming(int seq, String content) {
-            return new ChatStreamPayload(StreamStatus.STREAMING, seq, content, null, null);
+        public static ChatStreamPayload streaming(String content) {
+            return new ChatStreamPayload(StreamStatus.STREAMING, content, null, null);
         }
 
         public static ChatStreamPayload done(Long msgId) {
-            return new ChatStreamPayload(StreamStatus.DONE, null, null, msgId, null);
+            return new ChatStreamPayload(StreamStatus.DONE, null, msgId, null);
         }
 
         public static ChatStreamPayload error(String message) {
-            return new ChatStreamPayload(StreamStatus.ERROR, null, null, null, message);
+            return new ChatStreamPayload(StreamStatus.ERROR, null, null, message);
         }
     }
 
