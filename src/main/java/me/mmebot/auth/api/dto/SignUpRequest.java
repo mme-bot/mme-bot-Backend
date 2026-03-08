@@ -17,9 +17,6 @@ public record SignUpRequest(
 
         @NotBlank
         @Size(max = 40)
-        String nickname,
-
-        @NotNull
-        Long emailVerificationId
+        String nickname
 ) {
 }

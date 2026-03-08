@@ -5,6 +5,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -20,6 +23,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<ErrorResponse> handleApiException(ApiException ex, HttpServletRequest request) {
         HttpStatus status = ex.getStatus();
         ErrorResponse body = ErrorResponse.of(status.value(), status.getReasonPhrase(), ex.getMessage(), ex.getErrorCode(), request.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler({AuthenticationException.class, AccessDeniedException.class})
+    public ResponseEntity<ErrorResponse> handleSecurityException(RuntimeException ex, HttpServletRequest request) {
+        HttpStatus status = ex instanceof AccessDeniedException ? HttpStatus.FORBIDDEN : HttpStatus.UNAUTHORIZED;
+        String code = ex instanceof AccessDeniedException ? "AUTH-403" : "AUTH-401";
+        ErrorResponse body = ErrorResponse.of(status.value(), status.getReasonPhrase(), ex.getMessage(), code, request.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(UsernameNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUsernameNotFound(UsernameNotFoundException ex, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.NOT_FOUND;
+        ErrorResponse body = ErrorResponse.of(status.value(), status.getReasonPhrase(), ex.getMessage(), "AUTH-USER-NOT-FOUND", request.getRequestURI());
         return ResponseEntity.status(status).body(body);
     }
 

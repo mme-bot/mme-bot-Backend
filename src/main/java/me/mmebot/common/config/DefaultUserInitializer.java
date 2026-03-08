@@ -8,11 +8,11 @@ import me.mmebot.core.domain.EncryptionContext;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.user.domain.User;
 import me.mmebot.user.repository.UserRepository;
+import me.mmebot.user.service.UserEmailProtector;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -26,6 +26,7 @@ public class DefaultUserInitializer implements CommandLineRunner {
     private final BotRepository botRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserEmailProtector userEmailProtector;
 
     @Override
     public void run(String... args) {
@@ -231,17 +232,23 @@ public class DefaultUserInitializer implements CommandLineRunner {
                 .filter(bot -> !existingNames.contains(bot.getName()))
                 .forEach(botRepository::save);
 
-        userRepository.findByEmailCipher(defaultEmail).ifPresentOrElse(
+        String normalizedDefaultEmail = normalizeEmail(defaultEmail);
+        byte[] aadHash = userEmailProtector.aadHash(normalizedDefaultEmail);
+        userRepository.findByEmailEncryptionContextAadHash(aadHash).ifPresentOrElse(
                 _ -> {
                     // 이미 존재하면 로그만 출력
-                    log.info("기본 유저 이미 존재: " + defaultEmail);
+                    log.info("기본 유저 이미 존재: {}", normalizedDefaultEmail);
                 },
                 () -> {
-                    EncryptionContext context = encryptionContextFactory.createContext(defaultEmail.substring(0, 3).getBytes(StandardCharsets.UTF_8));
-                    // 기본 유저 생성
+                    UserEmailProtector.EmailSecrets emailSecrets = userEmailProtector.prepare(normalizedDefaultEmail, aadHash);
+                    EncryptionContext context = encryptionContextFactory.createContext(aadHash);
+                    Bot persistedBotChad = botRepository.findByName(botChad.getName())
+                            .orElseThrow(() -> new IllegalStateException("Bot not found: " + botChad.getName()));
+
                     User admin = User.builder()
-                            .bot(botChad)
-                            .emailCipher(defaultEmail)
+                            .bot(persistedBotChad)
+                            .emailCipher(emailSecrets.emailCipher())
+                            .emailHash(emailSecrets.emailHash())
                             .password(passwordEncoder.encode(defaultPassword))
                             .nickname("admin")
                             .emailEncryptionContext(context)
@@ -250,5 +257,9 @@ public class DefaultUserInitializer implements CommandLineRunner {
                     log.info("기본 계정 생성 완료");
                 }
         );
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
     }
 }

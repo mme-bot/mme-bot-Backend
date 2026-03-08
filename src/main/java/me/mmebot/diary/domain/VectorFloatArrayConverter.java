@@ -1,20 +1,20 @@
-package me.mmebot.common.converter;
+package me.mmebot.diary.domain;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
 @Converter(autoApply = false)
-public class VectorFloatArrayConverter implements AttributeConverter<float[], String> {
+public class VectorFloatArrayConverter implements AttributeConverter<float[], Object> {
 
     @Override
-    public String convertToDatabaseColumn(float[] attribute) {
+    public Object convertToDatabaseColumn(float[] attribute) {
         if (attribute == null) {
             return null;
         }
         if (attribute.length == 0) {
             return "[]";
         }
-        StringBuilder builder = new StringBuilder();
+        StringBuilder builder = new StringBuilder(attribute.length * 6);
         builder.append('[');
         for (int i = 0; i < attribute.length; i++) {
             if (i > 0) {
@@ -27,12 +27,12 @@ public class VectorFloatArrayConverter implements AttributeConverter<float[], St
     }
 
     @Override
-    public float[] convertToEntityAttribute(String dbData) {
+    public float[] convertToEntityAttribute(Object dbData) {
         if (dbData == null) {
             return null;
         }
-        String content = dbData.trim();
-        if (content.length() <= 2) {
+        String content = dbData.toString().trim();
+        if (content.isEmpty() || "[]".equals(content)) {
             return new float[0];
         }
         if (content.charAt(0) == '[' && content.charAt(content.length() - 1) == ']') {

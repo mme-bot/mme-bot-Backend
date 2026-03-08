@@ -20,13 +20,18 @@ import me.mmebot.auth.jwt.JwtProcessingException;
 import me.mmebot.auth.jwt.JwtTokenService;
 import me.mmebot.auth.repository.AuthTokenRepository;
 import me.mmebot.auth.repository.RoleRepository;
+import me.mmebot.auth.security.CustomUserDetails;
+import me.mmebot.auth.security.CustomUserDetailsService;
 import me.mmebot.auth.service.AuthServiceRecords.ClientMetadata;
 import me.mmebot.auth.service.AuthServiceRecords.SignInResult;
 import me.mmebot.auth.service.AuthServiceRecords.SignUpCommand;
 import me.mmebot.auth.service.AuthServiceRecords.TokenPair;
+import me.mmebot.core.domain.EncryptionContext;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.user.domain.User;
 import me.mmebot.user.repository.UserRepository;
+import me.mmebot.user.service.UserEmailProtector;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -47,28 +52,31 @@ public class AuthService {
     private final RedisService redisService;
     private final TokenCiperService tokenCiperService;
     private final EncryptionContextService encryptionContextService;
+    private final CustomUserDetailsService customUserDetailsService;
+    private final UserEmailProtector userEmailProtector;
 
     public SignInResult signIn(String email, String rawPassword, ClientMetadata metadata) {
         String normalizedEmail = normalizeEmail(email);
         log.info("Attempting sign-in for {}", normalizedEmail);
-        User user = userRepository.findByEmailHash(normalizedEmail)
-                .orElseThrow(() -> {
-                    log.warn("Sign-in failed: no user found for {}", normalizedEmail);
-                    return AuthException.invalidCredentials();
-                });
+        CustomUserDetails userDetails;
+        try {
+            userDetails = (CustomUserDetails) customUserDetailsService.loadUserByUsername(email);
+        } catch (UsernameNotFoundException ex) {
+            log.warn("Sign-in failed: no user found for {}", normalizedEmail);
+            throw AuthException.invalidCredentials();
+        }
 
+        User user = userDetails.getUser();
         if (user.isDeleted()) {
             log.warn("Sign-in failed: user {} is marked as deleted", user.getId());
-            throw AuthException.invalidCredentials(); // 삭제한 유저인 거 굳이 웹에 보여줄 필요 없음
+            throw AuthException.deletedAccount();
         }
-        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+        if (!passwordEncoder.matches(rawPassword, userDetails.getPassword())) {
             log.warn("Sign-in failed: invalid credentials for {}", normalizedEmail);
             throw AuthException.invalidCredentials();
         }
 
-        List<RoleName> roles = roleRepository.findByUserId(user.getId()).stream()
-                .map(Role::getRoleName)
-                .toList();
+        List<RoleName> roles = userDetails.getRoleNames();
 
         TokenPair tokens = issueTokens(user, roles, metadata);
         Long botId = user.getBot() != null ? user.getBot().getId() : null;
@@ -79,20 +87,22 @@ public class AuthService {
     public void signUp(SignUpCommand command) {
         String normalizedEmail = normalizeEmail(command.email());
         log.info("Attempting sign-up for {}", normalizedEmail);
-        userRepository.findByEmailHash(normalizedEmail)
+        byte[] emailAadHash = userEmailProtector.aadHash(normalizedEmail);
+        userRepository.findByEmailEncryptionContextAadHash(emailAadHash)
                 .ifPresent(_ -> {
                     log.warn("Sign-up failed: {} already in use", normalizedEmail);
                     throw AuthException.duplicateEmail();
                 });
 
-        emailVerificationService.requireVerified(command.emailVerificationId(), normalizedEmail);
-
+        UserEmailProtector.EmailSecrets emailSecrets = userEmailProtector.prepare(normalizedEmail, emailAadHash);
+        EncryptionContext encryptionContext = encryptionContextFactory.createContext(emailAadHash);
         User user = User.builder()
-                .emailCipher(normalizedEmail)
+                .emailCipher(emailSecrets.emailCipher())
+                .emailHash(emailSecrets.emailHash())
                 .password(passwordEncoder.encode(command.password()))
                 .nickname(command.nickname().trim())
                 .sns(false)
-                .emailEncryptionContext(encryptionContextFactory.createContext(tokenHashService.hash(normalizedEmail)))
+                .emailEncryptionContext(encryptionContext)
                 .build();
 
         User saved = userRepository.save(user);
