@@ -32,25 +32,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+
+        return path.equals("/api/v1/auth/login")
+                || path.equals("/api/v1/auth/sign-up");
+    }
+
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (SecurityContextHolder.getContext().getAuthentication() != null
+                || authorization == null
+                || !authorization.startsWith(BEARER_PREFIX)
+        ) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        resolveToken(request).ifPresent(token -> authenticate(request, token));
+        resolveToken(authorization, request).ifPresent(token -> authenticate(request, token));
         filterChain.doFilter(request, response);
     }
 
-    private Optional<String> resolveToken(HttpServletRequest request) {
-        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (authorization != null && authorization.startsWith(BEARER_PREFIX)) {
-            String token = authorization.substring(BEARER_PREFIX.length()).trim();
-            if (!token.isEmpty()) {
-                return Optional.of(token);
-            }
+    private Optional<String> resolveToken(String authorization, HttpServletRequest request) {
+        String token = authorization.substring(BEARER_PREFIX.length()).trim();
+        if (!token.isEmpty()) {
+            return Optional.of(token);
         }
 
         Cookie[] cookies = request.getCookies();

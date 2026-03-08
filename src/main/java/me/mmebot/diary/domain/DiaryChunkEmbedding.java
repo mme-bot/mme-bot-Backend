@@ -10,7 +10,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import me.mmebot.common.converter.VectorFloatArrayConverter;
 import me.mmebot.common.persistence.DatabaseNames;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;

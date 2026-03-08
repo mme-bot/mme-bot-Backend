@@ -11,7 +11,7 @@ public final class AuthServiceRecords {
     public record TokenPair(String accessToken, String refreshToken) {
     }
 
-    public record SignUpCommand(String email, String password, String nickname, Long emailVerificationId) {
+    public record SignUpCommand(String email, String password, String nickname) {
     }
 
     public record ClientMetadata(String userAgent, String ipAddress) {
