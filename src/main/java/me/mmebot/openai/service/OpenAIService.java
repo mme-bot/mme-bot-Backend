@@ -121,6 +121,10 @@ public class OpenAIService {
         );
     }
 
+    public Flux<ChatStreamResponse> sendChatMessage(String prompt, List<ChatMessage> messages, String reqMsg) {
+        return summarizeStream(buildMessages(prompt, messages, reqMsg));
+    }
+
     public Flux<ChatStreamResponse> sendChatMessage(
             String botPersona,
             String botScript,
@@ -204,6 +208,10 @@ public class OpenAIService {
         };
     }
 
+
+    public Flux<ChatStreamResponse> sendFirstChatMsg(String prompt) {
+        return summarizeStream(buildMessages(prompt, Collections.emptyList(), "대화 시작"));
+    }
 
     public Flux<ChatStreamResponse> sendFirstChatMsg(
             String botPersona,
