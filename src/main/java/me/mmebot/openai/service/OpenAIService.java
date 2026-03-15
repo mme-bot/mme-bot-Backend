@@ -108,7 +108,7 @@ public class OpenAIService {
 
     private String summarize(String prompt) {
         ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
-                .model(ChatModel.GPT_5_MINI) // 가성비 굿
+                .model(ChatModel.GPT_4_1_MINI) // 가성비 굿
                 .addUserMessage(prompt)
                 .build();
 
@@ -121,6 +121,10 @@ public class OpenAIService {
 
     public Flux<ChatStreamResponse> sendChatMessage(String prompt, List<ChatMessage> messages, String reqMsg) {
         return summarizeStream(buildMessages(prompt, messages, reqMsg));
+    }
+
+    public String sendChatMessageSync(String prompt, List<ChatMessage> messages, String reqMsg) {
+        return summarizeMessages(buildMessages(prompt, messages, reqMsg));
     }
 
     public Flux<ChatStreamResponse> sendChatMessage(
@@ -166,6 +170,49 @@ public class OpenAIService {
         return summarizeStream(buildMessages(prompt, chatMsgList, reqMsg));
     }
 
+    public String sendChatMessageSync(
+            String botPersona,
+            String botScript,
+            String chatStatus,
+            String emotion,
+            List<ChatMessage> chatMsgList,
+            String reqMsg,
+            String nickname
+    ) {
+        String prompt = """
+                [페르소나 규칙]
+                %s
+                
+                [스크립트]
+                %s
+                
+                [규칙]
+                %s
+                
+                [대화 상태]
+                %s
+                
+                [일반 규칙]
+                사용자가 일상에 대한 질문을 할 때 짧고 가벼운 ‘자기 일상’을 나눈다.
+                - 봇의 페르소나를 유지하는 가상 일상 허용
+                - 날씨, 기분, 하루의 분위기 정도만 공유
+                - 주인공은 항상 사용자이며, 봇의 이야기는 대화를 여는 역할만 한다
+                
+                [입력]
+                사용자 기분:%s
+                사용자 이름:%s
+                위 내용을 기반으로 사용자의 마지막 메시지에 응답하라.
+                """.formatted(
+                botPersona,
+                botScript,
+                basicRules(),
+                chatStatus,
+                emotion,
+                nickname
+        );
+        return summarizeMessages(buildMessages(prompt, chatMsgList, reqMsg));
+    }
+
     private List<Map<String, String>> buildMessages(
             String systemPrompt,
             List<ChatMessage> history,
@@ -206,9 +253,29 @@ public class OpenAIService {
         };
     }
 
+    private String summarizeMessages(List<Map<String, String>> messages) {
+        return summarize(flattenMessages(messages));
+    }
+
+    private String flattenMessages(List<Map<String, String>> messages) {
+        StringBuilder sb = new StringBuilder();
+        for (Map<String, String> message : messages) {
+            sb.append("[")
+                    .append(message.getOrDefault("role", "user"))
+                    .append("] ")
+                    .append(message.getOrDefault("content", ""))
+                    .append("\n\n");
+        }
+        return sb.toString();
+    }
+
 
     public Flux<ChatStreamResponse> sendFirstChatMsg(String prompt) {
         return summarizeStream(buildMessages(prompt, Collections.emptyList(), "대화 시작"));
+    }
+
+    public String sendFirstChatMsgSync(String prompt) {
+        return summarizeMessages(buildMessages(prompt, Collections.emptyList(), "대화 시작"));
     }
 
     public Flux<ChatStreamResponse> sendFirstChatMsg(
@@ -242,6 +309,39 @@ public class OpenAIService {
                 nickname
         );
         return summarizeStream(buildMessages(prompt, Collections.emptyList(), "대화 시작"));
+    }
+
+    public String sendFirstChatMsgSync(
+            String botPersona,
+            String botScript,
+            String emotion,
+            String diaryContent,
+            String nickname
+    ) {
+        String prompt = """
+                [페르소나]
+                %s
+                [스크립트]
+                %s
+                [규칙]
+                %s
+                [정보]
+                2.기분:%s
+                [입력]
+                사용자의 일기 기반 키워드:%s
+                사용자의 이름: %s
+                위 내용을 기반으로 사용자의 마지막 메시지에 응답하라.
+                대화의 마무리는 반드시 질문형 문장으로 끝나야 한다.
+                이 질문은 사용자의 현재 감정 상태를 확인하기 위한 개방형 질문이어야 하며, 일기 내용의 흐름에 자연스럽게 이어져야 한다.
+                """.formatted(
+                botPersona,
+                botScript,
+                basicRules(),
+                emotion,
+                diaryContent,
+                nickname
+        );
+        return summarizeMessages(buildMessages(prompt, Collections.emptyList(), "대화 시작"));
     }
 
     // 테스트용 봇 스크립트, 운영에서는 사용 X
