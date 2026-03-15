@@ -1,13 +1,11 @@
 package me.mmebot.openai.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.chat.domain.ChatMessage;
@@ -82,7 +80,7 @@ public class OpenAIService {
         return openAiWebClient.post()
                 .uri("/chat/completions")
                 .bodyValue(Map.of(
-                        "model", "gpt-5-mini",
+                        "model", "gpt-4.1-mini",
                         "stream", true,
                         "messages", content
                 ))
