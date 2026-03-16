@@ -4,6 +4,7 @@ import java.util.Arrays;
 import lombok.RequiredArgsConstructor;
 import me.mmebot.auth.service.TokenHashService;
 import me.mmebot.common.crypto.AesGcmCryptoService;
+import me.mmebot.user.exception.UserException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -21,7 +22,7 @@ public class UserEmailProtector {
 
     public EmailSecrets prepare(String normalizedEmail, byte[] precomputedHash) {
         if (normalizedEmail == null || normalizedEmail.isBlank()) {
-            throw new IllegalArgumentException("Email must not be blank");
+            throw UserException.emailBlank();
         }
         byte[] aadHash = precomputedHash != null ? Arrays.copyOf(precomputedHash, precomputedHash.length)
                 : tokenHashService.hash(normalizedEmail);
@@ -32,7 +33,7 @@ public class UserEmailProtector {
 
     public byte[] aadHash(String normalizedEmail) {
         if (normalizedEmail == null || normalizedEmail.isBlank()) {
-            throw new IllegalArgumentException("Email must not be blank");
+            throw UserException.emailBlank();
         }
         return tokenHashService.hash(normalizedEmail);
     }

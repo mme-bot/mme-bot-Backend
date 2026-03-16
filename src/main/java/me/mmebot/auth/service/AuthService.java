@@ -31,6 +31,7 @@ import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.user.domain.User;
 import me.mmebot.user.repository.UserRepository;
 import me.mmebot.user.service.UserEmailProtector;
+import me.mmebot.user.service.UserEmailProtector.EmailSecrets;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -57,7 +58,6 @@ public class AuthService {
 
     public SignInResult signIn(String email, String rawPassword, ClientMetadata metadata) {
         String normalizedEmail = normalizeEmail(email);
-        log.info("Attempting sign-in for {}", normalizedEmail);
         CustomUserDetails userDetails;
         try {
             userDetails = (CustomUserDetails) customUserDetailsService.loadUserByUsername(email);
@@ -84,9 +84,12 @@ public class AuthService {
         return new SignInResult(user.getId(), botId, user.getNickname(), tokens.accessToken(), tokens.refreshToken());
     }
 
+    private String getNormalizedEmail(String email) {
+        return email.toLowerCase().trim();
+    }
+
     public void signUp(SignUpCommand command) {
-        String normalizedEmail = normalizeEmail(command.email());
-        log.info("Attempting sign-up for {}", normalizedEmail);
+        String normalizedEmail = getNormalizedEmail(command.email());
         byte[] emailAadHash = userEmailProtector.aadHash(normalizedEmail);
         userRepository.findByEmailEncryptionContextAadHash(emailAadHash)
                 .ifPresent(_ -> {
@@ -94,7 +97,7 @@ public class AuthService {
                     throw AuthException.duplicateEmail();
                 });
 
-        UserEmailProtector.EmailSecrets emailSecrets = userEmailProtector.prepare(normalizedEmail, emailAadHash);
+        EmailSecrets emailSecrets = userEmailProtector.prepare(normalizedEmail, emailAadHash);
         EncryptionContext encryptionContext = encryptionContextFactory.createContext(emailAadHash);
         User user = User.builder()
                 .emailCipher(emailSecrets.emailCipher())
@@ -112,7 +115,6 @@ public class AuthService {
                     .roleName(RoleName.ROLE_USER)
                     .build());
         }
-        log.info("Sign-up succeeded: user {} registered", saved.getId());
     }
 
     public TokenPair reissue(Long userId, String refreshToken, ClientMetadata metadata) {

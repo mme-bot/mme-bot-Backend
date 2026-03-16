@@ -1,5 +1,7 @@
 package me.mmebot.auth.service;
 
+import jakarta.validation.constraints.NotBlank;
+
 public final class AuthServiceRecords {
 
     private AuthServiceRecords() {
@@ -11,7 +13,14 @@ public final class AuthServiceRecords {
     public record TokenPair(String accessToken, String refreshToken) {
     }
 
-    public record SignUpCommand(String email, String password, String nickname) {
+    public record SignUpCommand(
+            @NotBlank
+            String email,
+            @NotBlank
+            String password,
+            @NotBlank
+            String nickname
+    ) {
     }
 
     public record ClientMetadata(String userAgent, String ipAddress) {

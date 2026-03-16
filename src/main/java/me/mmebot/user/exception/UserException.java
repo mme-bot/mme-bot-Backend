@@ -26,4 +26,10 @@ public class UserException extends ApiException {
                 "Bot %d not found".formatted(botId),
                 "diary.bot_not_found");
     }
+
+    public static UserException emailBlank() {
+        return new UserException(HttpStatus.BAD_REQUEST,
+                "Email must not be blank",
+                "user.email_blank");
+    }
 }
