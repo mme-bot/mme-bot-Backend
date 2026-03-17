@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import me.mmebot.auth.api.dto.CheckEmailVerificationRequest;
+import me.mmebot.auth.api.dto.LogoutRequest;
 import me.mmebot.auth.api.dto.SendEmailVerificationRequest;
 import me.mmebot.auth.api.dto.SendEmailVerificationResponse;
 import me.mmebot.auth.api.dto.SignInRequest;
@@ -22,6 +23,7 @@ import me.mmebot.common.config.JwtProperties;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -59,7 +61,10 @@ public class AuthController {
 
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(HttpServletResponse httpResponse) {
+    public void logout(@AuthenticationPrincipal Long userId,
+                       @Valid @RequestBody LogoutRequest request,
+                       HttpServletResponse httpResponse) {
+        authService.logout(userId, request.refreshToken());
         expireAccessTokenCookie(httpResponse);
     }
 

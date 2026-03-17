@@ -1,16 +1,10 @@
 package me.mmebot.auth.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import me.mmebot.common.logging.MaskedField;
 
-public record TokenReissueRequest(
-        @NotNull
-        Long userId,
-
+public record LogoutRequest(
         @NotBlank
-        @Size(max = 4096)
         @MaskedField String refreshToken
 ) {
 }

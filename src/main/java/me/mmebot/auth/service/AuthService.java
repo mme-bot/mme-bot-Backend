@@ -8,7 +8,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.domain.AuthToken;
 import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.Role;
@@ -27,6 +26,7 @@ import me.mmebot.auth.service.AuthServiceRecords.SignInResult;
 import me.mmebot.auth.service.AuthServiceRecords.SignUpCommand;
 import me.mmebot.auth.service.AuthServiceRecords.TokenPair;
 import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.common.logging.Masked;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.user.domain.User;
 import me.mmebot.user.repository.UserRepository;
@@ -39,7 +39,6 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @Transactional
-@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -56,23 +55,20 @@ public class AuthService {
     private final CustomUserDetailsService customUserDetailsService;
     private final UserEmailProtector userEmailProtector;
 
-    public SignInResult signIn(String email, String rawPassword, ClientMetadata metadata) {
+    public SignInResult signIn(String email, @Masked String rawPassword, ClientMetadata metadata) {
         String normalizedEmail = normalizeEmail(email);
         CustomUserDetails userDetails;
         try {
             userDetails = (CustomUserDetails) customUserDetailsService.loadUserByUsername(email);
         } catch (UsernameNotFoundException ex) {
-            log.warn("Sign-in failed: no user found for {}", normalizedEmail);
             throw AuthException.invalidCredentials();
         }
 
         User user = userDetails.getUser();
         if (user.isDeleted()) {
-            log.warn("Sign-in failed: user {} is marked as deleted", user.getId());
             throw AuthException.deletedAccount();
         }
         if (!passwordEncoder.matches(rawPassword, userDetails.getPassword())) {
-            log.warn("Sign-in failed: invalid credentials for {}", normalizedEmail);
             throw AuthException.invalidCredentials();
         }
 
@@ -80,8 +76,24 @@ public class AuthService {
 
         TokenPair tokens = issueTokens(user, roles, metadata);
         Long botId = user.getBot() != null ? user.getBot().getId() : null;
-        log.info("Sign-in succeeded for user {}", user.getId());
         return new SignInResult(user.getId(), botId, user.getNickname(), tokens.accessToken(), tokens.refreshToken());
+    }
+
+    public void logout(Long userId, @Masked String refreshToken) {
+        if (userId == null) {
+            throw AuthException.authenticationRequired();
+        }
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw AuthException.refreshTokenMissing();
+        }
+
+        authTokenRepository.findByUserIdAndToken(userId, refreshToken)
+                .ifPresentOrElse(token -> {
+                    if (token.isRevoked()) {
+                        return;
+                    }
+                    token.revoke(OffsetDateTime.now());
+                }, () -> {});
     }
 
     private String getNormalizedEmail(String email) {
@@ -93,7 +105,6 @@ public class AuthService {
         byte[] emailAadHash = userEmailProtector.aadHash(normalizedEmail);
         userRepository.findByEmailEncryptionContextAadHash(emailAadHash)
                 .ifPresent(_ -> {
-                    log.warn("Sign-up failed: {} already in use", normalizedEmail);
                     throw AuthException.duplicateEmail();
                 });
 
@@ -117,40 +128,30 @@ public class AuthService {
         }
     }
 
-    public TokenPair reissue(Long userId, String refreshToken, ClientMetadata metadata) {
+    public TokenPair reissue(Long userId, @Masked String refreshToken, ClientMetadata metadata) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.warn("Token reissue failed: user {} not found", userId);
-                    return AuthException.userNotFound();
-                });
+                .orElseThrow(() -> AuthException.userNotFound());
         if (user.isDeleted()) {
-            log.warn("Token reissue failed: user {} is marked as deleted", userId);
             throw AuthException.deletedAccount();
         }
 
         byte[] userHash = tokenHashService.hash(userId.toString());
         AuthToken authToken = authTokenRepository.findByUserIdAndToken(userId, refreshToken)
-                .orElseThrow(() -> {
-                    log.warn("Token reissue failed: user's {} token not found", userId);
-                    return AuthException.tokenNotFound();
-                });
+                .orElseThrow(() -> AuthException.tokenNotFound());
 
         // 토큰 타입이 refresh 타입이 아님
         if (!authToken.getType().equals(AuthTokenType.REFRESH)) {
-            log.warn("Token reissue failed: token {} is not refresh token", authToken.getId());
             throw AuthException.refreshTokenMissing();
         }
 
         // 시간 지남
         OffsetDateTime now = OffsetDateTime.now();
         if (authToken.isRevoked() || authToken.isExpired(now)) {
-            log.warn("Token reissue failed: refresh token invalid for user {}", userId);
             throw AuthException.refreshTokenInvalid();
         }
 
         // hash 다륾
         if (!Arrays.equals(userHash, authToken.getEncryptionContext().getAadHash())) {
-            log.warn("Token reissue failed: user's {} token hash mismatch", userId);
             authToken.revoke(now);
             throw AuthException.refreshTokenInvalid();
         }
@@ -158,13 +159,10 @@ public class AuthService {
         String decodedToken = tokenCiperService.getDecodeToken(authToken.getToken(), authToken.getEncryptionContext(), authToken.getType(), userId.toString());
         JwtPayload storedPayload = parseToken(decodedToken);
         if (!Objects.equals(storedPayload.userId(), userId)) {
-            log.warn("Token reissue failed: refresh token user mismatch (expected {}, actual {})", userId,
-                    storedPayload.userId());
             authToken.revoke(now);
             throw AuthException.refreshTokenUserMismatch();
         }
         if (storedPayload.tokenType() != AuthTokenType.REFRESH) {
-            log.warn("Token reissue failed: invalid token type {} for user {}", storedPayload.tokenType(), userId);
             throw AuthException.invalidTokenType();
         }
 
@@ -176,7 +174,6 @@ public class AuthService {
                 .toList();
 
         TokenPair tokenPair = issueTokens(user, roles, metadata);
-        log.info("Token reissue succeeded for user {}", userId);
         return tokenPair;
     }
 
@@ -193,7 +190,6 @@ public class AuthService {
         EncryptedToken encryptAccessToken = getEncryptAccessToken(user, accessToken);
         storeAccessTokenToRedis(user.getId(), encryptAccessToken.payload());
 
-        log.debug("Issued tokens for user {} with roles {}", user.getId(), effectiveRoles);
         return new TokenPair(accessToken, authToken.getToken());
     }
 
@@ -225,7 +221,6 @@ public class AuthService {
                 metadata != null ? metadata.userAgent() : null
         );
         authTokenRepository.save(authToken);
-        log.debug("Stored refresh token metadata for user {}", user.getId());
 
         return authToken;
     }
@@ -234,14 +229,12 @@ public class AuthService {
         try {
             return jwtTokenService.parse(token);
         } catch (JwtProcessingException ex) {
-            log.error("Token parsing failed", ex);
             throw AuthException.tokenProcessingFailed("Failed to process token", ex);
         }
     }
 
     private String normalizeEmail(String email) {
         if (email == null) {
-            log.error("Email normalization failed: email is required");
             throw AuthException.emailRequired();
         }
         return email.trim().toLowerCase();

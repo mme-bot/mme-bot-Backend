@@ -1,14 +1,21 @@
 package me.mmebot.common.logging;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.*;
+import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.stereotype.Component;
+
+import java.lang.reflect.Parameter;
 
 @Slf4j
 @Aspect
 @Component
+@RequiredArgsConstructor
 public class LoggingAspect {
+
+    private final MaskingProperties maskingProperties;
 
     @Pointcut("within(@org.springframework.web.bind.annotation.RestController *)")
     public void restController() {}
@@ -19,16 +26,16 @@ public class LoggingAspect {
     @Pointcut("restController() || serviceLayer()")
     public void applicationPackagePointcut() {}
 
-    // 3) Around로 진입/종료 + 실행시간 로그
     @Around("applicationPackagePointcut()")
     public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable {
         long start = System.currentTimeMillis();
 
         String className = joinPoint.getTarget().getClass().getSimpleName();
-        String methodName = joinPoint.getSignature().getName();
-        Object[] args = joinPoint.getArgs();
+        MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+        String methodName = signature.getName();
 
-        log.info("[ENTER] {}.{} args={}", className, methodName, args);
+        String argsString = renderArgs(signature, joinPoint.getArgs());
+        log.info("[ENTER] {}.{} args={}", className, methodName, argsString);
 
         try {
             Object result = joinPoint.proceed();
@@ -48,4 +55,18 @@ public class LoggingAspect {
             throw ex;
         }
     }
+
+    private String renderArgs(MethodSignature signature, Object[] args) {
+        try {
+            if (!maskingProperties.maskingEnabled()) {
+                return MaskingUtil.simpleArgs(signature.getParameterNames(), args);
+            }
+            Parameter[] params = signature.getMethod().getParameters();
+            return MaskingUtil.maskedArgs(params, args, maskingProperties);
+        } catch (Throwable t) {
+            // Fallback to safe minimal logging on any error
+            return "<args unavailable>";
+        }
+    }
+
 }
