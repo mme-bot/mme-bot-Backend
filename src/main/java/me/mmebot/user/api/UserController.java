@@ -2,12 +2,12 @@ package me.mmebot.user.api;
 
 
 import lombok.RequiredArgsConstructor;
-import me.mmebot.bot.api.dto.BotRes;
 import me.mmebot.user.api.dto.SetUserBotRequest;
 import org.springframework.http.HttpStatus;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.UserDetails;
+import me.mmebot.auth.security.SecurityUtil;
 import me.mmebot.user.service.UserService;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,13 +28,15 @@ public class UserController {
 
     @PostMapping("/me/bot")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void setMyBot(@AuthenticationPrincipal Long userId,
+    public void setMyBot(@AuthenticationPrincipal UserDetails principal,
                          @Valid @RequestBody SetUserBotRequest req) {
+        Long userId = SecurityUtil.extractUserId(principal);
         userService.setUserBot(userId, req.botId());
     }
 
     @GetMapping("/me/bot")
-    public BotIdRes getMyBot(@AuthenticationPrincipal Long userId) {
+    public BotIdRes getMyBot(@AuthenticationPrincipal UserDetails principal) {
+        Long userId = SecurityUtil.extractUserId(principal);
         return userService.getUserBot(userId);
     }
 }

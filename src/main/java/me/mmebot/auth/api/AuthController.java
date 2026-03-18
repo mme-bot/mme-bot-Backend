@@ -24,6 +24,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import me.mmebot.auth.security.SecurityUtil;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -61,9 +63,10 @@ public class AuthController {
 
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(@AuthenticationPrincipal Long userId,
+    public void logout(@AuthenticationPrincipal UserDetails principal,
                        @Valid @RequestBody LogoutRequest request,
                        HttpServletResponse httpResponse) {
+        Long userId = SecurityUtil.extractUserId(principal);
         authService.logout(userId, request.refreshToken());
         expireAccessTokenCookie(httpResponse);
     }
@@ -130,4 +133,5 @@ public class AuthController {
                 : request.getRemoteAddr();
         return new ClientMetadata(userAgent, ipAddress);
     }
+
 }
