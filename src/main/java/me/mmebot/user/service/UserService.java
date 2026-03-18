@@ -1,6 +1,7 @@
 package me.mmebot.user.service;
 
 import lombok.RequiredArgsConstructor;
+import me.mmebot.bot.api.dto.BotRes.BotIdRes;
 import me.mmebot.bot.domain.Bot;
 import me.mmebot.bot.repository.BotRepository;
 import me.mmebot.user.domain.User;
@@ -40,5 +41,13 @@ public class UserService {
         Bot bot = botRepository.findById(botId)
                 .orElseThrow(() -> UserException.botNotFound(botId));
         user.assignBot(bot);
+    }
+
+    @Transactional
+    public BotIdRes getUserBot(Long userId) {
+        User user = getActiveUser(userId);
+        Bot bot = user.getBot();
+        Long botId = bot == null ? null : bot.getId();
+        return new BotIdRes(botId);
     }
 }
