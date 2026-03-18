@@ -87,4 +87,8 @@ public class User {
         this.sns = false;
         this.nickname = nickname;
     }
+
+    public void assignBot(Bot bot) {
+        this.bot = bot;
+    }
 }

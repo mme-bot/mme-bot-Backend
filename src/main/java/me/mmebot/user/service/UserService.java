@@ -7,6 +7,7 @@ import me.mmebot.user.domain.User;
 import me.mmebot.user.exception.UserException;
 import me.mmebot.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import jakarta.transaction.Transactional;
 
 import static me.mmebot.user.api.dto.TestUser.*;
 
@@ -31,5 +32,13 @@ public class UserService {
         User testUser = new User(req.nickname(), bot);
         userRepository.save(testUser);
         return new TestUserRes(testUser.getId(), testUser.getNickname());
+    }
+
+    @Transactional
+    public void setUserBot(Long userId, Long botId) {
+        User user = getActiveUser(userId);
+        Bot bot = botRepository.findById(botId)
+                .orElseThrow(() -> UserException.botNotFound(botId));
+        user.assignBot(bot);
     }
 }
