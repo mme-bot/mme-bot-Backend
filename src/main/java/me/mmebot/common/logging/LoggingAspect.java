@@ -58,7 +58,7 @@ public class LoggingAspect {
 
     private String renderArgs(MethodSignature signature, Object[] args) {
         try {
-            if (!maskingProperties.maskingEnabled()) {
+            if (!maskingProperties.isMaskingEnabled()) {
                 return MaskingUtil.simpleArgs(signature.getParameterNames(), args);
             }
             Parameter[] params = signature.getMethod().getParameters();

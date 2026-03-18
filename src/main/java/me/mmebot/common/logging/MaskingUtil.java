@@ -86,7 +86,7 @@ final class MaskingUtil {
             for (Map.Entry<?,?> e : map.entrySet()) {
                 if (i++ >= MAX_COLLECTION_ITEMS) { items.add("…" + (map.size() - MAX_COLLECTION_ITEMS) + " more"); break; }
                 String key = String.valueOf(e.getKey());
-                MaskingStrategyConfig keyRule = resolveRule(key, null, props);
+                MaskingStrategyConfig keyRule = resolveRule(key, (Masked) null, props);
                 if (keyRule != null) {
                     Object val = e.getValue();
                     if (val instanceof CharSequence cs) {

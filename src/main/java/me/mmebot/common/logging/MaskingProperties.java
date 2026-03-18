@@ -12,7 +12,7 @@ public record MaskingProperties(
         List<String> sensitiveKeys,
         Map<String, MaskingStrategyConfig> sensitiveStrategies
 ) {
-    public boolean maskingEnabled() {
+    public boolean isMaskingEnabled() {
         return maskingEnabled != null ? maskingEnabled : true;
     }
 
