@@ -48,7 +48,6 @@ public class AuthService {
     private final JwtTokenService jwtTokenService;
     private final TokenHashService tokenHashService;
     private final EncryptionContextFactory encryptionContextFactory;
-    private final EmailVerificationService emailVerificationService;
     private final RedisService redisService;
     private final TokenCiperService tokenCiperService;
     private final EncryptionContextService encryptionContextService;

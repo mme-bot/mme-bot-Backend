@@ -3,10 +3,7 @@ package me.mmebot.auth.api;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import me.mmebot.auth.api.dto.CheckEmailVerificationRequest;
 import me.mmebot.auth.api.dto.LogoutRequest;
-import me.mmebot.auth.api.dto.SendEmailVerificationRequest;
-import me.mmebot.auth.api.dto.SendEmailVerificationResponse;
 import me.mmebot.auth.api.dto.SignInRequest;
 import me.mmebot.auth.api.dto.SignInResponse;
 import me.mmebot.auth.api.dto.SignUpRequest;
@@ -14,11 +11,9 @@ import me.mmebot.auth.api.dto.TokenReissueRequest;
 import me.mmebot.auth.api.dto.TokenReissueResponse;
 import me.mmebot.auth.service.AuthService;
 import me.mmebot.auth.service.AuthServiceRecords.ClientMetadata;
-import me.mmebot.auth.service.AuthServiceRecords.SendEmailVerificationResult;
 import me.mmebot.auth.service.AuthServiceRecords.SignInResult;
 import me.mmebot.auth.service.AuthServiceRecords.SignUpCommand;
 import me.mmebot.auth.service.AuthServiceRecords.TokenPair;
-import me.mmebot.auth.service.EmailVerificationService;
 import me.mmebot.common.config.JwtProperties;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -39,14 +34,11 @@ public class AuthController {
     private static final String ACCESS_TOKEN_COOKIE = "access_token";
 
     private final AuthService authService;
-    private final EmailVerificationService emailVerificationService;
     private final JwtProperties jwtProperties;
 
     public AuthController(AuthService authService,
-                          EmailVerificationService emailVerificationService,
                           JwtProperties jwtProperties) {
         this.authService = authService;
-        this.emailVerificationService = emailVerificationService;
         this.jwtProperties = jwtProperties;
     }
 
@@ -81,17 +73,17 @@ public class AuthController {
         ));
     }
 
-    @PostMapping("/email-verification/send")
-    public SendEmailVerificationResponse sendEmailVerification(@Valid @RequestBody SendEmailVerificationRequest request) {
-        SendEmailVerificationResult result = emailVerificationService.send(request.email());
-        return new SendEmailVerificationResponse(result.emailVerificationId(), result.code());
-    }
-
-    @PostMapping("/email-verification/check")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void checkEmailVerification(@Valid @RequestBody CheckEmailVerificationRequest request) {
-        emailVerificationService.check(request.emailVerificationId(), request.code());
-    }
+//    @PostMapping("/email-verification/send")
+//    public SendEmailVerificationResponse sendEmailVerification(@Valid @RequestBody SendEmailVerificationRequest request) {
+//        SendEmailVerificationResult result = emailVerificationService.send(request.email());
+//        return new SendEmailVerificationResponse(result.emailVerificationId(), result.code());
+//    }
+//
+//    @PostMapping("/email-verification/check")
+//    @ResponseStatus(HttpStatus.NO_CONTENT)
+//    public void checkEmailVerification(@Valid @RequestBody CheckEmailVerificationRequest request) {
+//        emailVerificationService.check(request.emailVerificationId(), request.code());
+//    }
 
     @PostMapping("/token-reissue")
     public TokenReissueResponse reissueToken(@Valid @RequestBody TokenReissueRequest request,
