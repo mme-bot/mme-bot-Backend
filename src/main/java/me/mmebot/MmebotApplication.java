@@ -7,6 +7,7 @@ import me.mmebot.common.mail.GoogleProperties;
 import me.mmebot.common.logging.MaskingProperties;
 import me.mmebot.common.persistence.ApiProp;
 import me.mmebot.core.config.EncryptionKeyProperties;
+import me.mmebot.openai.config.OpenAIProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -22,6 +23,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         GoogleProperties.class,
         ChatPersistenceQueueProperties.class,
         MaskingProperties.class
+        , OpenAIProperties.class
 })
 public class MmebotApplication {
 
