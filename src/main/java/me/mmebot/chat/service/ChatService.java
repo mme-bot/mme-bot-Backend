@@ -16,6 +16,7 @@ import me.mmebot.chat.repository.ChatSessionRepository;
 import me.mmebot.common.crypto.AesGcmCryptoService;
 import me.mmebot.core.domain.EncryptionContext;
 import me.mmebot.core.service.EncryptionContextFactory;
+import me.mmebot.core.service.TemplateService;
 import me.mmebot.diary.domain.Diary;
 import me.mmebot.diary.service.DiaryService;
 import me.mmebot.openai.dto.ChatMessageRole;
@@ -30,10 +31,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static me.mmebot.chat.api.dto.ChatMsgRes.*;
@@ -56,6 +54,7 @@ public class ChatService {
     private final StreamContextStore streamContextStore;
     private final ChatPersistenceQueueService chatPersistenceQueueService;
     private final ObjectMapper objectMapper;
+    private final TemplateService templateService;
 
     public CreateChatSessionRes createChatSession(CreateChatSessionReq req) {
         Diary diary = diaryService.getActiveDiary(req.diaryId());
@@ -170,14 +169,9 @@ public class ChatService {
 
         AtomicReference<Long> savedMsgIdRef = new AtomicReference<>();
 
-        Flux<ChatStreamResponse> aiStream = openAiService.sendChatMessage(
-                user.getBot().getPersona(),
-                user.getBot().getScript(),
-                chatStatus.name(),
-                diary.getEmotion(),
-                chatMsgList,
-                msg,
-                user.getNickname());
+        String prompt = buildMessagePrompt(user, diary.getContent());
+
+        Flux<ChatStreamResponse> aiStream = openAiService.sendChatMessage(prompt, chatMsgList, msg);
 
         Flux<ChatStreamPayload> responseStream = aiStream
             .doOnNext(response -> fullMsg.append(response.content()))
@@ -342,13 +336,8 @@ public class ChatService {
 
         AtomicReference<Long> savedMsgIdRef = new AtomicReference<>();
 
-//        String resMsg = openAiService.sendFirstChatMsg(
-        Flux<ChatStreamResponse> aiStream = openAiService.sendFirstChatMsg(
-                bot.getPersona(),
-                bot.getScript(),
-                diary.getEmotion(),
-                content,
-                user.getNickname());
+        String prompt = buildFirstMessagePrompt(user, content);
+        Flux<ChatStreamResponse> aiStream = openAiService.sendFirstChatMsg(prompt);
                 
         Flux<ChatStreamPayload> responseStream = aiStream
             .doOnNext(response -> fullMsg.append(response.content()))
@@ -410,6 +399,32 @@ public class ChatService {
                 null
         );
         return saveChatMessage(chatMessage);
+    }
+
+    private String buildMessagePrompt(User user, String content) {
+        return buildPrompt(user, content, false);
+    }
+
+    private String buildFirstMessagePrompt(User user, String content) {
+        return buildPrompt(user, content, true);
+    }
+
+    private String buildPrompt(User user, String content, boolean firstMessage) {
+        String templateName = resolveTemplateName(user.getBot().getName(), firstMessage);
+
+        return templateService.generatePrompt(templateName, Map.of(
+                "user", user.getNickname(),
+                "content", content
+        ));
+    }
+
+    private String resolveTemplateName(String botName, boolean firstMessage) {
+        return switch (botName) {
+            case "채드" -> firstMessage ? "chadFirst" : "chad";
+            case "몽몽" -> firstMessage ? "mongmongFirst" : "mongmong";
+            case "키키" -> firstMessage ? "kikiFirst" : "kiki";
+            default -> throw new IllegalStateException("Unsupported bot name: " + botName);
+        };
     }
 
     private void setSavedMsgId(AtomicReference<Long> savedMsgIdRef, ChatMessage savedMsg, String errorMessage) {
