@@ -555,7 +555,7 @@ public class ChatService {
         return switch (botName) {
             case "채드" -> firstMessage ? "chadFirst" : "chad";
             case "몽몽" -> firstMessage ? "mongmongFirst" : "mongmong";
-            case "키키" -> firstMessage ? "kikiFirst" : "kiki";
+            case "카키" -> firstMessage ? "kakiFirst" : "kaki";
             default -> throw new IllegalStateException("Unsupported bot name: " + botName);
         };
     }
