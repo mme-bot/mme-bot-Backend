@@ -1,43 +1,47 @@
 package me.mmebot.openai.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.chat.domain.ChatMessage;
 import me.mmebot.common.KoreanTextAnalyzer;
-import me.mmebot.openai.dto.ChatMessageRole;
 import me.mmebot.openai.dto.ChatStreamResponse;
 import me.mmebot.openai.exception.OpenAIException;
+import me.mmebot.openai.config.OpenAIProperties;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.time.Duration;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class OpenAIService {
+public class OpenAIService implements OpenAIChatPort {
     private final OpenAIClient openAIClient;
     private final KoreanTextAnalyzer analyzer;
     private final WebClient openAiWebClient;
     private final ObjectMapper objectMapper;
+    private final OpenAIChatRequestBuilder requestBuilder;
+    private final OpenAIMetricsRecorder metricsRecorder;
+    private final OpenAIProperties openAIProperties;
 
 //    public String diarySummarizeShort(String content) {
 //        List<String> keywords = analyzer.extractKeywords(content);
@@ -55,7 +59,10 @@ public class OpenAIService {
 //        return summarize(prompt);
 //    }
 
-    private Flux<String> extractDelta(String raw) {
+    /**
+     * OpenAI SSE data 라인에서 델타 content 만 추출한다.
+     */
+    private Flux<String> extractDeltaAndMetrics(String raw, String model) {
         return Flux.fromArray(raw.split("\n"))
                 .concatMap(json -> {
                     try {
@@ -63,6 +70,14 @@ public class OpenAIService {
                             return Flux.empty();
                         }
                         JsonNode node = objectMapper.readTree(json);
+                        // usage 정보가 포함된 경우 토큰 메트릭 기록
+                        if (node.has("usage")) {
+                            JsonNode usage = node.get("usage");
+                            long prompt = usage.path("prompt_tokens").asLong(0);
+                            long completion = usage.path("completion_tokens").asLong(0);
+                            long total = usage.path("total_tokens").asLong(0);
+                            metricsRecorder.recordTokenUsage(model, prompt, completion, total);
+                        }
                         JsonNode delta = node.at("/choices/0/delta");
 
                         // content 없는 delta (role 등) 무시
@@ -76,13 +91,19 @@ public class OpenAIService {
                 });
     }
 
+    /**
+     * OpenAI ChatCompletions 스트림 호출. 오류 매핑/재시도/간단한 메트릭 포함.
+     */
     public Flux<ChatStreamResponse> summarizeStream(List<Map<String, String>> content) {
         AtomicLong seq = new AtomicLong();
+        long startNs = System.nanoTime();
+        AtomicReference<Long> ttfbNsRef = new AtomicReference<>(-1L);
 
+        final String model = openAIProperties.getChat().getModel();
         return openAiWebClient.post()
                 .uri("/chat/completions")
                 .bodyValue(Map.of(
-                        "model", "gpt-5-mini",
+                        "model", model,
                         "stream", true,
                         "messages", content
                 ))
@@ -90,8 +111,7 @@ public class OpenAIService {
                 .onStatus(
                         HttpStatusCode::isError,
                         resp -> resp.bodyToMono(String.class)
-                                .doOnNext(err -> log.error("OpenAI error body = {}", err))
-                                .then(Mono.error(new RuntimeException("OpenAI error")))
+                                .flatMap(errBody -> Mono.error(OpenAIException.httpError(HttpStatus.valueOf(resp.statusCode().value()), errBody)))
                 )
                 .bodyToFlux(new ParameterizedTypeReference<ServerSentEvent<String>>() {})
                 .doOnNext(sse -> log.debug("SSE RAW = {}", sse)) // 개발 로깅용
@@ -103,14 +123,41 @@ public class OpenAIService {
                     if ("[DONE]".equals(data.trim())) {
                         return Flux.empty();
                     }
-                    return extractDelta(data);
+                    // 첫 바이트 수신 시점 기록 (TTFB)
+                    ttfbNsRef.compareAndSet(-1L, System.nanoTime() - startNs);
+                    return extractDeltaAndMetrics(data, model);
                 })
-                .map(contentPiece -> new ChatStreamResponse(seq.getAndIncrement(), contentPiece));
+                .map(contentPiece -> new ChatStreamResponse(seq.getAndIncrement(), contentPiece))
+                .retryWhen(
+                        Retry.backoff(3, Duration.ofMillis(200))
+                                .filter(this::isTransientOpenAIError)
+                                .onRetryExhaustedThrow((spec, signal) -> signal.failure())
+                )
+                .onErrorMap(throwable -> {
+                    // 네트워크/클라이언트 오류를 도메인 예외로 변환
+                    if (throwable instanceof OpenAIException) return throwable;
+                    return OpenAIException.clientError(throwable);
+                })
+                .doFinally(signalType -> {
+                    long durationNs = System.nanoTime() - startNs;
+                    Long ttfbNs = ttfbNsRef.get();
+                    double ttfbMs = ttfbNs > 0 ? ttfbNs / 1_000_000.0 : -1;
+                    double totalMs = durationNs / 1_000_000.0;
+                    log.debug("OpenAI stream metrics ttfbMs={} totalMs={}", ttfbMs, totalMs);
+                    metricsRecorder.recordTtfb(model, ttfbMs);
+                    metricsRecorder.recordDuration(model, totalMs);
+                });
     }
 
+    /**
+     * 동기 완료 API 사용 (스트리밍 우선 구조에서 더 이상 사용하지 않음).
+     */
+    @Deprecated
     private String summarize(String prompt) {
+        // 설정값의 모델명을 사용하도록 전환 (호환을 위해 동기 경로 유지)
+        String model = openAIProperties.getChat().getModel();
         ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
-                .model(ChatModel.GPT_5_MINI) // 가성비 굿
+                .model(ChatModel.of(model))
                 .addUserMessage(prompt)
                 .build();
 
@@ -122,7 +169,11 @@ public class OpenAIService {
     }
 
     public Flux<ChatStreamResponse> sendChatMessage(String prompt, List<ChatMessage> messages, String reqMsg) {
-        return summarizeStream(buildMessages(prompt, messages, reqMsg));
+        return summarizeStream(requestBuilder.buildMessages(prompt, messages, reqMsg));
+    }
+
+    public String sendChatMessageSync(String prompt, List<ChatMessage> messages, String reqMsg) {
+        return summarizeMessages(requestBuilder.buildMessages(prompt, messages, reqMsg));
     }
 
     public Flux<ChatStreamResponse> sendChatMessage(
@@ -165,52 +216,66 @@ public class OpenAIService {
                 emotion,
                 nickname
         );
-        return summarizeStream(buildMessages(prompt, chatMsgList, reqMsg));
+        return summarizeStream(requestBuilder.buildMessages(prompt, chatMsgList, reqMsg));
     }
 
-    private List<Map<String, String>> buildMessages(
-            String systemPrompt,
-            List<ChatMessage> history,
-            String userPrompt
+    public String sendChatMessageSync(
+            String botPersona,
+            String botScript,
+            String chatStatus,
+            String emotion,
+            List<ChatMessage> chatMsgList,
+            String reqMsg,
+            String nickname
     ) {
-        List<Map<String, String>> messages = new ArrayList<>();
-
-        if (systemPrompt != null && !systemPrompt.isBlank()) {
-            messages.add(Map.of(
-                    "role", "system",
-                    "content", systemPrompt
-            ));
-        }
-
-        if (history != null && !history.isEmpty()) {
-            for (ChatMessage msg : history) {
-                messages.add(Map.of(
-                        "role", toOpenAiRole(msg.getRole()),
-                        "content", msg.getContent()
-                ));
-            }
-        }
-
-        if (userPrompt != null) {
-            messages.add(Map.of(
-                    "role", "user",
-                    "content", userPrompt
-            ));
-        }
-
-        return messages;
+        String prompt = """
+                [페르소나 규칙]
+                %s
+                
+                [스크립트]
+                %s
+                
+                [규칙]
+                %s
+                
+                [대화 상태]
+                %s
+                
+                [일반 규칙]
+                사용자가 일상에 대한 질문을 할 때 짧고 가벼운 ‘자기 일상’을 나눈다.
+                - 봇의 페르소나를 유지하는 가상 일상 허용
+                - 날씨, 기분, 하루의 분위기 정도만 공유
+                - 주인공은 항상 사용자이며, 봇의 이야기는 대화를 여는 역할만 한다
+                
+                [입력]
+                사용자 기분:%s
+                사용자 이름:%s
+                위 내용을 기반으로 사용자의 마지막 메시지에 응답하라.
+                """.formatted(
+                botPersona,
+                botScript,
+                basicRules(),
+                chatStatus,
+                emotion,
+                nickname
+        );
+        return summarizeMessages(requestBuilder.buildMessages(prompt, chatMsgList, reqMsg));
     }
 
-    private String toOpenAiRole(ChatMessageRole role) {
-        return switch (role) {
-            case USER -> "user";
-            case ASSISTANT -> "assistant";
-        };
+    // 메시지 빌더 로직은 OpenAIChatRequestBuilder 로 위임
+
+    private String summarizeMessages(List<Map<String, String>> messages) {
+        // Streaming-first: collect content from summarizeStream
+        return summarizeSync(messages);
     }
 
-
+    
     public Flux<ChatStreamResponse> sendFirstChatMsg(String prompt) {
-        return summarizeStream(buildMessages(prompt, Collections.emptyList(), "대화 시작"));
+        return summarizeStream(requestBuilder.buildMessages(prompt, Collections.emptyList(), "대화 시작"));
+    }
+
+    public String sendFirstChatMsgSync(String prompt) {
+        return summarizeMessages(requestBuilder.buildMessages(prompt, Collections.emptyList(), "대화 시작"));
     }
 
     public Flux<ChatStreamResponse> sendFirstChatMsg(
@@ -243,7 +308,40 @@ public class OpenAIService {
                 diaryContent,
                 nickname
         );
-        return summarizeStream(buildMessages(prompt, Collections.emptyList(), "대화 시작"));
+        return summarizeStream(requestBuilder.buildMessages(prompt, Collections.emptyList(), "대화 시작"));
+    }
+
+    public String sendFirstChatMsgSync(
+            String botPersona,
+            String botScript,
+            String emotion,
+            String diaryContent,
+            String nickname
+    ) {
+        String prompt = """
+                [페르소나]
+                %s
+                [스크립트]
+                %s
+                [규칙]
+                %s
+                [정보]
+                2.기분:%s
+                [입력]
+                사용자의 일기 기반 키워드:%s
+                사용자의 이름: %s
+                위 내용을 기반으로 사용자의 마지막 메시지에 응답하라.
+                대화의 마무리는 반드시 질문형 문장으로 끝나야 한다.
+                이 질문은 사용자의 현재 감정 상태를 확인하기 위한 개방형 질문이어야 하며, 일기 내용의 흐름에 자연스럽게 이어져야 한다.
+                """.formatted(
+                botPersona,
+                botScript,
+                basicRules(),
+                emotion,
+                diaryContent,
+                nickname
+        );
+        return summarizeMessages(requestBuilder.buildMessages(prompt, Collections.emptyList(), "대화 시작"));
     }
 
     // 테스트용 봇 스크립트, 운영에서는 사용 X
@@ -357,5 +455,18 @@ public class OpenAIService {
                 - 대화를 갑작스럽게 끊지 않고 지금까지의 이야기를 정리한다.
                 - 추가 질문을 유도하지 않으며, “다음에 다시 이야기하자”는 느낌의 여지를 남긴다.
                 """;
+    }
+
+    /**
+     * 재시도 대상인 OpenAI 예외인지 여부(429/5xx) 판단.
+     */
+    private boolean isTransientOpenAIError(Throwable t) {
+        if (t instanceof OpenAIException ex) {
+            HttpStatus status = ex.getStatus();
+            if (status == null) return false;
+            int code = status.value();
+            return code == 429 || (code >= 500 && code < 600);
+        }
+        return false;
     }
 }

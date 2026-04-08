@@ -2,6 +2,7 @@ package me.mmebot.auth.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import me.mmebot.common.logging.MaskedField;
 import me.mmebot.common.validation.ValidEmail;
 
 public record SignInRequest(
@@ -12,6 +13,6 @@ public record SignInRequest(
 
         @NotBlank
         @Size(min = 8, max = 255)
-        String passwd
+        @MaskedField String passwd
 ) {
 }

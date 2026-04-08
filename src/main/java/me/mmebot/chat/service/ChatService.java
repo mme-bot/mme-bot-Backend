@@ -34,6 +34,7 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static me.mmebot.chat.api.dto.ChatMsgReq.*;
 import static me.mmebot.chat.api.dto.ChatMsgRes.*;
 import static me.mmebot.chat.api.dto.ChatSessionReq.*;
 import static me.mmebot.chat.api.dto.ChatSessionRes.*;
@@ -176,10 +177,10 @@ public class ChatService {
         Flux<ChatStreamPayload> responseStream = aiStream
             .doOnNext(response -> fullMsg.append(response.content()))
             .doOnComplete(() -> {
-                 ChatMessage savedAssistantMsg = saveChatMessagePair(chatSession, user, replyMsg, msg, fullMsg.toString());
+                 ChatMessagePair savedAssistantMsg = saveChatMessagePair(chatSession, user, replyMsg, msg, fullMsg.toString());
                  setSavedMsgId(
                         savedMsgIdRef,
-                        savedAssistantMsg,
+                        savedAssistantMsg.assistantMessage(),
                         "Assistant message was not persisted for streamId=" + streamId
                  );
             })
@@ -217,7 +218,66 @@ public class ChatService {
                 .onErrorResume(e -> Flux.just(buildErrorPayload(e.getMessage())));
     }
 
-    public ChatMessage saveChatMessagePair(
+    public List<CreateChatMsgRes> createChatMessageSync(Long chatSessionId, CreateChatMsgReq req) {
+        User user = userService.getActiveUser(req.userId());
+        ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
+                .orElseThrow(() -> ChatException.chatSessionNotFound(chatSessionId));
+
+        if (!user.equals(chatSession.getDiary().getUser())) {
+            throw ChatException.chatSessionUserMismatch(
+                    chatSession.getId(),
+                    user.getId(),
+                    chatSession.getDiary().getUser().getId()
+            );
+        }
+
+        ChatMessage replyMsg = getChatMsg(req.replyToMsgId())
+                .orElseThrow(() -> ChatException.chatMessageNotFound(req.replyToMsgId()));
+
+        List<ChatMessage> replyMsgs = chatMsgRepository.findAllByReplyMsgId(req.replyToMsgId());
+        if (!replyMsgs.isEmpty()) {
+            throw ChatException.chatMessageAlreadyHasReply(req.replyToMsgId());
+        }
+
+        List<ChatMessage> chatMsgList = getChatMessages(chatSession);
+        if (chatMsgList.isEmpty()) {
+            throw ChatException.chatSessionHasNoMessages(chatSession.getId());
+        }
+        long userMsgCount = chatMsgList.stream()
+                .filter(ChatMessage::isUserMsg)
+                .count();
+        if (userMsgCount >= 21) {
+            throw ChatException.chatSessionUserMessageLimitExceeded(chatSession.getId(), 20);
+        }
+        chatMsgList.sort(Comparator.comparing(ChatMessage::getSeq));
+
+        String prompt = buildMessagePrompt(user, chatSession.getDiary().getContent());
+        String assistantReply = openAiService.sendChatMessageSync(prompt, chatMsgList, req.msg());
+
+        final int userMessageSeq = replyMsg.getSeq() + 1;
+        final int assistantMessageSeq = userMessageSeq + 1;
+
+        ChatMessagePair savedPair = saveChatMessagePair(chatSession, user, replyMsg, req.msg(), assistantReply);
+        ChatMessage savedUserMsg = requireChatMessage(
+                savedPair.userMessage(),
+                chatSession.getId(),
+                userMessageSeq,
+                "User message was not persisted for session=" + chatSessionId
+        );
+        ChatMessage savedAssistantMsg = requireChatMessage(
+                savedPair.assistantMessage(),
+                chatSession.getId(),
+                assistantMessageSeq,
+                "Assistant message was not persisted for session=" + chatSessionId
+        );
+
+        return List.of(
+                toChatMsgRes(savedUserMsg),
+                toChatMsgRes(savedAssistantMsg)
+        );
+    }
+
+    public ChatMessagePair saveChatMessagePair(
             ChatSession chatSession,
             User user,
             ChatMessage replyMsg,
@@ -232,7 +292,11 @@ public class ChatService {
                     chatSession.getId(),
                     userSeq,
                     assistantSeq);
-            return chatMsgRepository.findByChatSessionIdAndSeq(chatSession.getId(), assistantSeq).orElse(null);
+            ChatMessage existingUser = chatMsgRepository.findByChatSessionIdAndSeq(chatSession.getId(), userSeq)
+                    .orElse(null);
+            ChatMessage existingAssistant = chatMsgRepository.findByChatSessionIdAndSeq(chatSession.getId(), assistantSeq)
+                    .orElse(null);
+            return new ChatMessagePair(existingUser, existingAssistant);
         }
 
         EncryptionContext context = encryptionContextFactory.createContext(user.getId().toString());
@@ -257,8 +321,10 @@ public class ChatService {
         );
 
         saveChats(reqMsg, resMsg);
-        return resMsg;
+        return new ChatMessagePair(reqMsg, resMsg);
     }
+
+    public record ChatMessagePair(ChatMessage userMessage, ChatMessage assistantMessage) {}
 
     @Transactional
     protected void saveChats(ChatMessage req, ChatMessage res) {
@@ -294,6 +360,43 @@ public class ChatService {
                 context,
                 replyMsg
         );
+    }
+
+    public StartChatRes createFirstChatSync(Long chatSessionId, StartChatReq req) {
+        User user = userService.getActiveUser(req.userId());
+        ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
+                .orElseThrow(() -> ChatException.chatSessionNotFound(chatSessionId));
+
+        if (!user.equals(chatSession.getDiary().getUser())) {
+            throw ChatException.chatSessionUserMismatch(
+                    chatSession.getId(),
+                    user.getId(),
+                    chatSession.getDiary().getUser().getId()
+            );
+        }
+
+        if (!getChatMessages(chatSession).isEmpty()) {
+            throw ChatException.chatSessionAlreadyHasMessages(chatSession.getId());
+        }
+
+        Diary diary = chatSession.getDiary();
+        String contentEnc = diary.getContent();
+        EncryptionContext encryptionContext = diary.getEncryptionContext();
+        String content = aesGcmCryptoService.decryptWithAad(contentEnc, encryptionContext.getAadHash());
+
+        String prompt = buildFirstMessagePrompt(user, content);
+        String assistantReply = openAiService.sendFirstChatMsgSync(prompt);
+        final int firstMessageOrder = 1;
+
+        ChatMessage savedMessage = saveFirstMessage(chatSession, user, assistantReply);
+        ChatMessage persisted = requireChatMessage(
+                savedMessage,
+                chatSession.getId(),
+                firstMessageOrder,
+                "First assistant message was not persisted for session=" + chatSessionId
+        );
+
+        return new StartChatRes(persisted.getId(), decryptChatMessage(persisted));
     }
 
     public Flux<ChatStreamPayload> createFirstChat(String streamId) {
@@ -401,6 +504,36 @@ public class ChatService {
         return saveChatMessage(chatMessage);
     }
 
+    private CreateChatMsgRes toChatMsgRes(ChatMessage chatMessage) {
+        if (chatMessage == null) {
+            throw new IllegalStateException("Chat message is required");
+        }
+        return new CreateChatMsgRes(
+                chatMessage.getId(),
+                chatMessage.getSeq(),
+                chatMessage.getRole(),
+                decryptChatMessage(chatMessage)
+        );
+    }
+
+    private ChatMessage requireChatMessage(ChatMessage chatMessage, Long chatSessionId, int seq, String errorMessage) {
+        if (chatMessage != null && chatMessage.getId() != null) {
+            return chatMessage;
+        }
+        return chatMsgRepository.findByChatSessionIdAndSeq(chatSessionId, seq)
+                .orElseThrow(() -> new IllegalStateException(errorMessage));
+    }
+
+    private String decryptChatMessage(ChatMessage chatMessage) {
+        if (chatMessage == null || chatMessage.getEncryptionContext() == null) {
+            throw new IllegalStateException("Chat message encryption context missing");
+        }
+        return aesGcmCryptoService.decryptWithAad(
+                chatMessage.getContent(),
+                chatMessage.getEncryptionContext().getAadHash()
+        );
+    }
+
     private String buildMessagePrompt(User user, String content) {
         return buildPrompt(user, content, false);
     }
@@ -422,7 +555,7 @@ public class ChatService {
         return switch (botName) {
             case "채드" -> firstMessage ? "chadFirst" : "chad";
             case "몽몽" -> firstMessage ? "mongmongFirst" : "mongmong";
-            case "키키" -> firstMessage ? "kikiFirst" : "kiki";
+            case "카키" -> firstMessage ? "kakiFirst" : "kaki";
             default -> throw new IllegalStateException("Unsupported bot name: " + botName);
         };
     }

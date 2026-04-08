@@ -6,7 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import me.mmebot.chat.api.dto.ChatMsgReq.CreateChatMsgReq;
 import me.mmebot.chat.api.dto.ChatMsgRes.ChatMsg;
 import me.mmebot.chat.api.dto.ChatMsgRes.ChatStreamPayload;
+import me.mmebot.chat.api.dto.ChatMsgRes.CreateChatMsgRes;
 import me.mmebot.chat.api.dto.ChatMsgRes.StartChatInitRes;
+import me.mmebot.chat.api.dto.ChatMsgRes.StartChatRes;
 import me.mmebot.chat.service.ChatService;
 import me.mmebot.stream.StreamContextStore;
 import org.springframework.http.MediaType;
@@ -53,6 +55,14 @@ public class ChatController {
         return new StartChatInitRes(streamId);
     }
 
+    @PostMapping("/{chatSessionId}/messages/start/direct")
+    public StartChatRes startFirstChatDirect(
+            @RequestBody @Valid StartChatReq req,
+            @PathVariable("chatSessionId") Long chatSessionId
+    ) {
+        return chatService.createFirstChatSync(chatSessionId, req);
+    }
+
     @GetMapping(value = "/stream/messages/start", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ChatStreamPayload> firstChatStream(@RequestParam String streamId) {
         return chatService.createFirstChat(streamId);
@@ -84,6 +94,12 @@ public class ChatController {
         ));
 
         return new StartChatMsgRes(streamId);
+    }
+
+    @PostMapping("/{chatSessionId}/messages/direct")
+    public List<CreateChatMsgRes> sendDirectMsg(@RequestBody @Valid CreateChatMsgReq req,
+                                                @PathVariable("chatSessionId") Long chatSessionId) {
+        return chatService.createChatMessageSync(chatSessionId, req);
     }
 
     @GetMapping(value = "/stream/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

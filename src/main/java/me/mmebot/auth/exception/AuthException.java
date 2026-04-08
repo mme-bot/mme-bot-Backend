@@ -33,6 +33,10 @@ public class AuthException extends ApiException {
         return new AuthException(HttpStatus.NOT_FOUND, "User not found", "auth.user_not_found");
     }
 
+    public static AuthException authenticationRequired() {
+        return new AuthException(HttpStatus.UNAUTHORIZED, "Authentication required", "auth.authentication_required");
+    }
+
     public static AuthException tokenNotFound() {
         return new AuthException(HttpStatus.NOT_FOUND, "Token not found", "auth.token_not_found");
     }

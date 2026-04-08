@@ -1,5 +1,8 @@
 package me.mmebot.auth.service;
 
+import jakarta.validation.constraints.NotBlank;
+import me.mmebot.common.logging.MaskedField;
+
 public final class AuthServiceRecords {
 
     private AuthServiceRecords() {
@@ -11,7 +14,14 @@ public final class AuthServiceRecords {
     public record TokenPair(String accessToken, String refreshToken) {
     }
 
-    public record SignUpCommand(String email, String password, String nickname) {
+    public record SignUpCommand(
+            @NotBlank
+            String email,
+            @NotBlank
+            @MaskedField String password,
+            @NotBlank
+            String nickname
+    ) {
     }
 
     public record ClientMetadata(String userAgent, String ipAddress) {
