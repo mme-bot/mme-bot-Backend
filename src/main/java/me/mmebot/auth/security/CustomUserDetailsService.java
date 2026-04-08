@@ -3,12 +3,10 @@ package me.mmebot.auth.security;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import me.mmebot.auth.domain.RoleEntity;
+import me.mmebot.auth.application.port.out.LoadUserPort;
+import me.mmebot.auth.application.port.out.LoadUserRolesPort;
 import me.mmebot.auth.domain.RoleName;
-import me.mmebot.auth.repository.RoleRepository;
 import me.mmebot.user.domain.UserEntity;
-import me.mmebot.user.repository.UserRepository;
-import me.mmebot.user.service.UserEmailProtector;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -19,24 +17,19 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
 
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final UserEmailProtector userEmailProtector;
+    private final LoadUserPort loadUserPort;
+    private final LoadUserRolesPort loadUserRolesPort;
 
     @Override
     public UserDetails loadUserByUsername(String username) {
         String normalizedEmail = normalize(username);
-        byte[] aadHash = userEmailProtector.aadHash(normalizedEmail);
-        UserEntity user = userRepository.findByEmailEncryptionContextAadHash(aadHash)
+        UserEntity user = loadUserPort.loadByNormalizedEmail(normalizedEmail)
                 .orElseThrow(() -> {
                     log.warn("UserEntity lookup failed: {} not found", normalizedEmail);
                     return new UsernameNotFoundException("UserEntity not found");
                 });
 
-        List<RoleName> roles = roleRepository.findByUserId(user.getId()).stream()
-                .map(RoleEntity::getRoleName)
-                .toList();
-
+        List<RoleName> roles = loadUserRolesPort.loadRoleNames(user.getId());
         log.debug("Loaded user {} with {} roles", user.getId(), roles.size());
         return CustomUserDetails.of(user, roles);
     }

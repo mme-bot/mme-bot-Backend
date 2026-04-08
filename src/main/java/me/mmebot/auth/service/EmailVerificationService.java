@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.domain.EmailVerificationEntity;
 import me.mmebot.auth.exception.EmailVerificationException;
 import me.mmebot.auth.repository.EmailVerificationRepository;
-import me.mmebot.auth.service.AuthServiceRecords.SendEmailVerificationResult;
+import me.mmebot.auth.service.EmailVerificationResult;
 import me.mmebot.common.mail.MailMessage;
 import me.mmebot.common.mail.MailSender;
 import me.mmebot.common.mail.MailSendingException;
@@ -45,7 +45,7 @@ public class EmailVerificationService {
     private final SecureRandom secureRandom = new SecureRandom();
     private volatile String cachedTemplate;
 
-    public SendEmailVerificationResult send(String email) {
+    public EmailVerificationResult send(String email) {
         String normalizedEmail = normalizeEmail(email);
         if (!EMAIL_PATTERN.matcher(normalizedEmail).matches()) {
             log.warn("Email verification send failed: invalid format for {}", email);
@@ -72,7 +72,7 @@ public class EmailVerificationService {
         EmailVerificationEntity saved = repository.save(verification);
         sendVerificationEmail(saved.getEmail(), code);
         log.info("Email verification code generated successfully: verificationId={}", saved.getId());
-        return new SendEmailVerificationResult(saved.getId(), code);
+        return new EmailVerificationResult(saved.getId(), code);
     }
 
     public void check(Long emailVerificationId, String code) {

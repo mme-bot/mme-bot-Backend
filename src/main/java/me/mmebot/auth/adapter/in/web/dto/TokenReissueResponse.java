@@ -1,4 +1,4 @@
-package me.mmebot.auth.api.dto;
+package me.mmebot.auth.adapter.in.web.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
