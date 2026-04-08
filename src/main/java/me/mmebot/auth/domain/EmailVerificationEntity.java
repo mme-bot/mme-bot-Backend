@@ -18,7 +18,7 @@ import lombok.Builder;
 import lombok.Builder.Default;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.domain.EncryptionContextEntity;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Getter
@@ -29,7 +29,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @Table(name = DatabaseNames.Tables.EMAIL_VERIFICATION, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
         @Index(name = "idx_email_verification_email_sendat_desc", columnList = "email, send_at DESC")
 })
-public class EmailVerification {
+public class EmailVerificationEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -55,7 +55,7 @@ public class EmailVerification {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "encryption_context_id", nullable = false)
-    private EncryptionContext encryptionContext;
+    private EncryptionContextEntity encryptionContext;
 
     public void markVerified() {
         this.verified = true;

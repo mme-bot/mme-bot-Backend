@@ -27,7 +27,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 @Builder
 @Entity
 @Table(name = DatabaseNames.Tables.ENCRYPTION_CONTEXTS, schema = DatabaseNames.Schemas.MME_BOT)
-public class EncryptionContext {
+public class EncryptionContextEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -51,7 +51,7 @@ public class EncryptionContext {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "key_id", nullable = false)
-    private EncryptionKey key;
+    private EncryptionKeyEntity key;
 
     @Column(name = "encrypt_at")
     private OffsetDateTime encryptAt;

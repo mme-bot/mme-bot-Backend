@@ -2,11 +2,11 @@ package me.mmebot.common.config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import me.mmebot.bot.domain.Bot;
+import me.mmebot.bot.domain.BotEntity;
 import me.mmebot.bot.repository.BotRepository;
-import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.domain.EncryptionContextEntity;
 import me.mmebot.core.service.EncryptionContextFactory;
-import me.mmebot.user.domain.User;
+import me.mmebot.user.domain.UserEntity;
 import me.mmebot.user.repository.UserRepository;
 import me.mmebot.user.service.UserEmailProtector;
 import org.springframework.boot.CommandLineRunner;
@@ -33,7 +33,7 @@ public class DefaultUserInitializer implements CommandLineRunner {
         String defaultEmail = "admin@naver.com";
         String defaultPassword = "admin123!";
 
-        Bot botKaki = new Bot(
+        BotEntity botKaki = new BotEntity(
                 "카키",
                 """
                 당신은 ‘카키’라는 이름의 AI이다.
@@ -94,7 +94,7 @@ public class DefaultUserInitializer implements CommandLineRunner {
                 """
         );
 
-        Bot botMong = new Bot(
+        BotEntity botMong = new BotEntity(
                 "몽몽",
                 """
                 당신은 ‘몽몽’이라는 이름의 AI이다.
@@ -159,7 +159,7 @@ public class DefaultUserInitializer implements CommandLineRunner {
                 """
         );
 
-        Bot botChad = new Bot("채드",
+        BotEntity botChad = new BotEntity("채드",
                 """
                 당신은 당당하고 유쾌하며 에너지가 넘치는 대장 같은 AI ‘채드’이다.
                 분위기를 무겁게 만들지 않고,
@@ -225,7 +225,7 @@ public class DefaultUserInitializer implements CommandLineRunner {
         );
 
         Set<String> existingNames = botRepository.findAll().stream()
-                .map(Bot::getName)
+                .map(BotEntity::getName)
                 .collect(Collectors.toSet());
 
         Stream.of(botChad, botMong, botKaki)
@@ -241,11 +241,11 @@ public class DefaultUserInitializer implements CommandLineRunner {
                 },
                 () -> {
                     UserEmailProtector.EmailSecrets emailSecrets = userEmailProtector.prepare(normalizedDefaultEmail, aadHash);
-                    EncryptionContext context = encryptionContextFactory.createContext(aadHash);
-                    Bot persistedBotChad = botRepository.findByName(botChad.getName())
-                            .orElseThrow(() -> new IllegalStateException("Bot not found: " + botChad.getName()));
+                    EncryptionContextEntity context = encryptionContextFactory.createContext(aadHash);
+                    BotEntity persistedBotChad = botRepository.findByName(botChad.getName())
+                            .orElseThrow(() -> new IllegalStateException("BotEntity not found: " + botChad.getName()));
 
-                    User admin = User.builder()
+                    UserEntity admin = UserEntity.builder()
                             .bot(persistedBotChad)
                             .emailCipher(emailSecrets.emailCipher())
                             .emailHash(emailSecrets.emailHash())

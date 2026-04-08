@@ -12,13 +12,13 @@ public class DiaryException extends ApiException {
 
     public static DiaryException diaryNotFound(Long diaryId) {
         return new DiaryException(HttpStatus.NOT_FOUND,
-                "Diary %d not found".formatted(diaryId),
+                "DiaryEntity %d not found".formatted(diaryId),
                 "diary.not_found");
     }
 
     public static DiaryException diaryAlreadyExists(LocalDate date) {
         return new DiaryException(HttpStatus.CONFLICT,
-                "Diary already exists for date %s".formatted(date),
+                "DiaryEntity already exists for date %s".formatted(date),
                 "diary.duplicate_date");
     }
 }

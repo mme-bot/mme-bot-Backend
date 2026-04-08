@@ -1,4 +1,4 @@
-package me.mmebot.user.domain;
+package me.mmebot.diary.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -6,6 +6,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -16,45 +17,42 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.domain.EncryptionContextEntity;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = DatabaseNames.Tables.SNS_USERS, schema = DatabaseNames.Schemas.MME_BOT)
-public class SnsUser {
+@Table(name = DatabaseNames.Tables.DIARY_CHUNK, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
+        @Index(name = "ux_diary_chunk_diary_index", columnList = "diary_id, chunk_index", unique = true)
+})
+public class DiaryChunkEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "sns_user_id")
+    @Column(name = "diary_chunk_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "users_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "diary_id", nullable = false)
+    private DiaryEntity diary;
 
-    @Column(nullable = false, length = 32)
-    private String provider;
+    @Column(name = "chunk_index", nullable = false)
+    private int chunkIndex;
 
-    @Column(name = "provider_uid", nullable = false, length = 128)
-    private String providerUid;
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String content;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "encryption_context_id", nullable = false)
-    private EncryptionContext encryptionContext;
-
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
-
-    @Column(name = "deleted_at")
-    private OffsetDateTime deletedAt;
+    @Column(name = "token_count")
+    private Integer tokenCount;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "encryption_context_id", nullable = false)
+    private EncryptionContextEntity encryptionContext;
 }

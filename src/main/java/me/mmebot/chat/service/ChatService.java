@@ -4,9 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import me.mmebot.bot.domain.Bot;
-import me.mmebot.chat.domain.ChatMessage;
-import me.mmebot.chat.domain.ChatSession;
+import me.mmebot.bot.domain.BotEntity;
+import me.mmebot.chat.domain.ChatMessageEntity;
+import me.mmebot.chat.domain.ChatSessionEntity;
 import me.mmebot.chat.domain.ChatSessionStatus;
 import me.mmebot.chat.domain.ChatStatus;
 import me.mmebot.chat.exception.ChatException;
@@ -14,16 +14,16 @@ import me.mmebot.chat.queue.ChatPersistenceQueueService;
 import me.mmebot.chat.repository.ChatMessageRepository;
 import me.mmebot.chat.repository.ChatSessionRepository;
 import me.mmebot.common.crypto.AesGcmCryptoService;
-import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.domain.EncryptionContextEntity;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.core.service.TemplateService;
-import me.mmebot.diary.domain.Diary;
+import me.mmebot.diary.domain.DiaryEntity;
 import me.mmebot.diary.service.DiaryService;
 import me.mmebot.openai.dto.ChatMessageRole;
 import me.mmebot.openai.dto.ChatStreamResponse;
 import me.mmebot.openai.service.OpenAIService;
 import me.mmebot.stream.StreamContextStore;
-import me.mmebot.user.domain.User;
+import me.mmebot.user.domain.UserEntity;
 import me.mmebot.user.service.UserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,8 +58,8 @@ public class ChatService {
     private final TemplateService templateService;
 
     public CreateChatSessionRes createChatSession(CreateChatSessionReq req) {
-        Diary diary = diaryService.getActiveDiary(req.diaryId());
-        User user = diary.getUser();
+        DiaryEntity diary = diaryService.getActiveDiary(req.diaryId());
+        UserEntity user = diary.getUser();
         if (!req.userId().equals(user.getId())) {
             throw ChatException.diaryOwnerMismatch(diary.getId(), req.userId(), user.getId());
         }
@@ -74,15 +74,15 @@ public class ChatService {
             throw ChatException.diaryNotFromToday(diary.getId(), diary.getDate(), today);
         }
 
-        Optional<ChatSession> existingSession = getChatSessionByDiaryId(diary.getId());
+        Optional<ChatSessionEntity> existingSession = getChatSessionByDiaryId(diary.getId());
         if (existingSession.isPresent()) {
-            ChatSession session = existingSession.get();
+            ChatSessionEntity session = existingSession.get();
             throw ChatException.chatSessionAlreadyExists(diary.getId(), session.getId());
         }
 
-        EncryptionContext context = encryptionContextFactory.createContext(user.getId().toString());
+        EncryptionContextEntity context = encryptionContextFactory.createContext(user.getId().toString());
 
-        ChatSession chatSession = ChatSession.builder()
+        ChatSessionEntity chatSession = ChatSessionEntity.builder()
                 .diary(diary)
                 .bot(user.getBot())
                 .status(ChatSessionStatus.ACTIVE)
@@ -94,19 +94,19 @@ public class ChatService {
         return new CreateChatSessionRes(chatSession.getId());
     }
 
-    protected Optional<ChatSession> getChatSessionWithDiaryAndUserById(Long chatSessionId) {
+    protected Optional<ChatSessionEntity> getChatSessionWithDiaryAndUserById(Long chatSessionId) {
         return chatSessionRepository.findWithDiaryAndUser(chatSessionId);
     }
 
-    private Optional<ChatMessage> getChatMsg(Long chatMessageId) {
+    private Optional<ChatMessageEntity> getChatMsg(Long chatMessageId) {
         return chatMsgRepository.findById(chatMessageId);
     }
     
-    protected void saveChatSession(ChatSession chatSession) {
+    protected void saveChatSession(ChatSessionEntity chatSession) {
         chatSessionRepository.save(chatSession);
     }
 
-    private Optional<ChatSession> getChatSessionByDiaryId(Long diaryId) {
+    private Optional<ChatSessionEntity> getChatSessionByDiaryId(Long diaryId) {
         return chatSessionRepository.findByDiaryId(diaryId);
     }
 
@@ -118,8 +118,8 @@ public class ChatService {
         Long replyToMsgId = streamContext.replyToMsgId();
         String msg = streamContext.msg();
 
-        User user = userService.getActiveUser(userId);
-        ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
+        UserEntity user = userService.getActiveUser(userId);
+        ChatSessionEntity chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
                 .orElseThrow(() -> ChatException.chatSessionNotFound(chatSessionId));
 
         if (!user.equals(chatSession.getDiary().getUser())) {
@@ -130,30 +130,30 @@ public class ChatService {
             );
         }
 
-        ChatMessage replyMsg = getChatMsg(replyToMsgId)
+        ChatMessageEntity replyMsg = getChatMsg(replyToMsgId)
                 .orElseThrow(() -> ChatException.chatMessageNotFound(replyToMsgId));
 
-        List<ChatMessage> replyMsgs = chatMsgRepository.findAllByReplyMsgId(replyToMsgId);
+        List<ChatMessageEntity> replyMsgs = chatMsgRepository.findAllByReplyMsgId(replyToMsgId);
         if (!replyMsgs.isEmpty()) {
             throw ChatException.chatMessageAlreadyHasReply(replyToMsgId);
         }
 
-        List<ChatMessage> chatMsgList = getChatMessages(chatSession);
+        List<ChatMessageEntity> chatMsgList = getChatMessages(chatSession);
         if (chatMsgList.isEmpty()) {
             throw ChatException.chatSessionHasNoMessages(chatSession.getId());
         }
         long userMsgCount = chatMsgList.stream()
-                .filter(ChatMessage::isUserMsg)
+                .filter(ChatMessageEntity::isUserMsg)
                 .count();
         if (userMsgCount >= 21) {
             throw ChatException.chatSessionUserMessageLimitExceeded(chatSession.getId(), 20);
         }
         // seq asc 순으로 정렬
-        chatMsgList.sort(Comparator.comparing(ChatMessage::getSeq));
+        chatMsgList.sort(Comparator.comparing(ChatMessageEntity::getSeq));
 
         /**
          * 1. Prompt
-         * 2. (ChatMessage)
+         * 2. (ChatMessageEntity)
          * ... ing
          */
 
@@ -162,7 +162,7 @@ public class ChatService {
             chatStatus = ChatStatus.FINAL;
         }
 
-        Diary diary = chatSession.getDiary();
+        DiaryEntity diary = chatSession.getDiary();
 //        String diaryShortEnc = diary.getSummaryShort();
         StringBuilder fullMsg = new StringBuilder();
         final int userMessageSeq = replyMsg.getSeq() + 1;
@@ -219,8 +219,8 @@ public class ChatService {
     }
 
     public List<CreateChatMsgRes> createChatMessageSync(Long chatSessionId, CreateChatMsgReq req) {
-        User user = userService.getActiveUser(req.userId());
-        ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
+        UserEntity user = userService.getActiveUser(req.userId());
+        ChatSessionEntity chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
                 .orElseThrow(() -> ChatException.chatSessionNotFound(chatSessionId));
 
         if (!user.equals(chatSession.getDiary().getUser())) {
@@ -231,25 +231,25 @@ public class ChatService {
             );
         }
 
-        ChatMessage replyMsg = getChatMsg(req.replyToMsgId())
+        ChatMessageEntity replyMsg = getChatMsg(req.replyToMsgId())
                 .orElseThrow(() -> ChatException.chatMessageNotFound(req.replyToMsgId()));
 
-        List<ChatMessage> replyMsgs = chatMsgRepository.findAllByReplyMsgId(req.replyToMsgId());
+        List<ChatMessageEntity> replyMsgs = chatMsgRepository.findAllByReplyMsgId(req.replyToMsgId());
         if (!replyMsgs.isEmpty()) {
             throw ChatException.chatMessageAlreadyHasReply(req.replyToMsgId());
         }
 
-        List<ChatMessage> chatMsgList = getChatMessages(chatSession);
+        List<ChatMessageEntity> chatMsgList = getChatMessages(chatSession);
         if (chatMsgList.isEmpty()) {
             throw ChatException.chatSessionHasNoMessages(chatSession.getId());
         }
         long userMsgCount = chatMsgList.stream()
-                .filter(ChatMessage::isUserMsg)
+                .filter(ChatMessageEntity::isUserMsg)
                 .count();
         if (userMsgCount >= 21) {
             throw ChatException.chatSessionUserMessageLimitExceeded(chatSession.getId(), 20);
         }
-        chatMsgList.sort(Comparator.comparing(ChatMessage::getSeq));
+        chatMsgList.sort(Comparator.comparing(ChatMessageEntity::getSeq));
 
         String prompt = buildMessagePrompt(user, chatSession.getDiary().getContent());
         String assistantReply = openAiService.sendChatMessageSync(prompt, chatMsgList, req.msg());
@@ -258,13 +258,13 @@ public class ChatService {
         final int assistantMessageSeq = userMessageSeq + 1;
 
         ChatMessagePair savedPair = saveChatMessagePair(chatSession, user, replyMsg, req.msg(), assistantReply);
-        ChatMessage savedUserMsg = requireChatMessage(
+        ChatMessageEntity savedUserMsg = requireChatMessage(
                 savedPair.userMessage(),
                 chatSession.getId(),
                 userMessageSeq,
                 "User message was not persisted for session=" + chatSessionId
         );
-        ChatMessage savedAssistantMsg = requireChatMessage(
+        ChatMessageEntity savedAssistantMsg = requireChatMessage(
                 savedPair.assistantMessage(),
                 chatSession.getId(),
                 assistantMessageSeq,
@@ -278,9 +278,9 @@ public class ChatService {
     }
 
     public ChatMessagePair saveChatMessagePair(
-            ChatSession chatSession,
-            User user,
-            ChatMessage replyMsg,
+            ChatSessionEntity chatSession,
+            UserEntity user,
+            ChatMessageEntity replyMsg,
             String userMsg,
             String botMsg
     ) {
@@ -292,18 +292,18 @@ public class ChatService {
                     chatSession.getId(),
                     userSeq,
                     assistantSeq);
-            ChatMessage existingUser = chatMsgRepository.findByChatSessionIdAndSeq(chatSession.getId(), userSeq)
+            ChatMessageEntity existingUser = chatMsgRepository.findByChatSessionIdAndSeq(chatSession.getId(), userSeq)
                     .orElse(null);
-            ChatMessage existingAssistant = chatMsgRepository.findByChatSessionIdAndSeq(chatSession.getId(), assistantSeq)
+            ChatMessageEntity existingAssistant = chatMsgRepository.findByChatSessionIdAndSeq(chatSession.getId(), assistantSeq)
                     .orElse(null);
             return new ChatMessagePair(existingUser, existingAssistant);
         }
 
-        EncryptionContext context = encryptionContextFactory.createContext(user.getId().toString());
+        EncryptionContextEntity context = encryptionContextFactory.createContext(user.getId().toString());
         String reqMsgEnc = aesGcmCryptoService.encryptWithAad(userMsg, context.getAadHash());
         String resMsgEnc = aesGcmCryptoService.encryptWithAad(botMsg, context.getAadHash());
 
-        ChatMessage reqMsg = getChatMessage(
+        ChatMessageEntity reqMsg = getChatMessage(
                 reqMsgEnc,
                 chatSession,
                 userSeq,
@@ -311,7 +311,7 @@ public class ChatService {
                 context,
                 replyMsg
         );
-        ChatMessage resMsg = getChatMessage(
+        ChatMessageEntity resMsg = getChatMessage(
                 resMsgEnc,
                 chatSession,
                 assistantSeq,
@@ -324,10 +324,10 @@ public class ChatService {
         return new ChatMessagePair(reqMsg, resMsg);
     }
 
-    public record ChatMessagePair(ChatMessage userMessage, ChatMessage assistantMessage) {}
+    public record ChatMessagePair(ChatMessageEntity userMessage, ChatMessageEntity assistantMessage) {}
 
     @Transactional
-    protected void saveChats(ChatMessage req, ChatMessage res) {
+    protected void saveChats(ChatMessageEntity req, ChatMessageEntity res) {
         chatMsgRepository.save(req);
         chatMsgRepository.save(res);
     }
@@ -336,23 +336,23 @@ public class ChatService {
         return msg.replace("{user}", nickname);
     }
 
-    private List<ChatMessage> getChatMessages(ChatSession chatSession) {
+    private List<ChatMessageEntity> getChatMessages(ChatSessionEntity chatSession) {
         return chatMsgRepository.findAllByChatSessionWithEnc(chatSession);
     }
 
-    private ChatMessage saveChatMessage(ChatMessage chatMsg) {
+    private ChatMessageEntity saveChatMessage(ChatMessageEntity chatMsg) {
         return chatMsgRepository.save(chatMsg);
     }
 
-    private ChatMessage getChatMessage(
+    private ChatMessageEntity getChatMessage(
             String msg,
-            ChatSession chatSession,
+            ChatSessionEntity chatSession,
             int msgSeq,
             ChatMessageRole role,
-            EncryptionContext context,
-            ChatMessage replyMsg
+            EncryptionContextEntity context,
+            ChatMessageEntity replyMsg
     ) {
-        return new ChatMessage(
+        return new ChatMessageEntity(
                 chatSession,
                 msgSeq,
                 role,
@@ -363,8 +363,8 @@ public class ChatService {
     }
 
     public StartChatRes createFirstChatSync(Long chatSessionId, StartChatReq req) {
-        User user = userService.getActiveUser(req.userId());
-        ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
+        UserEntity user = userService.getActiveUser(req.userId());
+        ChatSessionEntity chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
                 .orElseThrow(() -> ChatException.chatSessionNotFound(chatSessionId));
 
         if (!user.equals(chatSession.getDiary().getUser())) {
@@ -379,17 +379,17 @@ public class ChatService {
             throw ChatException.chatSessionAlreadyHasMessages(chatSession.getId());
         }
 
-        Diary diary = chatSession.getDiary();
+        DiaryEntity diary = chatSession.getDiary();
         String contentEnc = diary.getContent();
-        EncryptionContext encryptionContext = diary.getEncryptionContext();
+        EncryptionContextEntity encryptionContext = diary.getEncryptionContext();
         String content = aesGcmCryptoService.decryptWithAad(contentEnc, encryptionContext.getAadHash());
 
         String prompt = buildFirstMessagePrompt(user, content);
         String assistantReply = openAiService.sendFirstChatMsgSync(prompt);
         final int firstMessageOrder = 1;
 
-        ChatMessage savedMessage = saveFirstMessage(chatSession, user, assistantReply);
-        ChatMessage persisted = requireChatMessage(
+        ChatMessageEntity savedMessage = saveFirstMessage(chatSession, user, assistantReply);
+        ChatMessageEntity persisted = requireChatMessage(
                 savedMessage,
                 chatSession.getId(),
                 firstMessageOrder,
@@ -410,8 +410,8 @@ public class ChatService {
         Long chatSessionId = streamContext.chatSessionId();
         Long userId = streamContext.userId();
 
-        User user = userService.getActiveUser(userId);
-        ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId).orElseThrow(() ->
+        UserEntity user = userService.getActiveUser(userId);
+        ChatSessionEntity chatSession = getChatSessionWithDiaryAndUserById(chatSessionId).orElseThrow(() ->
             ChatException.chatSessionNotFound(chatSessionId));
 
         // 유저 검증
@@ -427,13 +427,13 @@ public class ChatService {
             throw ChatException.chatSessionAlreadyHasMessages(chatSession.getId());
         }
 
-        Diary diary = chatSession.getDiary();
+        DiaryEntity diary = chatSession.getDiary();
 //        String summaryShortEnc = diary.getSummaryShort();
         String contentEnc = diary.getContent();
-        EncryptionContext encryptionContext = diary.getEncryptionContext();
+        EncryptionContextEntity encryptionContext = diary.getEncryptionContext();
         String content = aesGcmCryptoService.decryptWithAad(contentEnc, encryptionContext.getAadHash());
 
-        Bot bot = user.getBot();
+        BotEntity bot = user.getBot();
         StringBuilder fullMsg = new StringBuilder();
         final int firstMessageOrder = 1;
 
@@ -446,7 +446,7 @@ public class ChatService {
             .doOnNext(response -> fullMsg.append(response.content()))
             .doOnComplete(() -> {
                 // 3. 스트림 끝난 뒤 DB 저장 (⭐ 중요)
-                ChatMessage savedMsg = saveFirstMessage(chatSession, user, fullMsg.toString());
+                ChatMessageEntity savedMsg = saveFirstMessage(chatSession, user, fullMsg.toString());
                 setSavedMsgId(
                         savedMsgIdRef,
                         savedMsg,
@@ -484,16 +484,16 @@ public class ChatService {
                 .onErrorResume(e -> Flux.just(buildErrorPayload(e.getMessage())));
     }
 
-    public ChatMessage saveFirstMessage(ChatSession chatSession, User user, String resMsg) {
+    public ChatMessageEntity saveFirstMessage(ChatSessionEntity chatSession, UserEntity user, String resMsg) {
         final int messageOrder = 1;
         if (chatMsgRepository.existsByChatSessionIdAndSeq(chatSession.getId(), messageOrder)) {
             log.debug("First chat message already exists for session {} - skipping", chatSession.getId());
             return chatMsgRepository.findByChatSessionIdAndSeq(chatSession.getId(), messageOrder).orElse(null);
         }
-        EncryptionContext msgEncContext = encryptionContextFactory.createContext(user.getId().toString());
+        EncryptionContextEntity msgEncContext = encryptionContextFactory.createContext(user.getId().toString());
         String resMsgEnc = aesGcmCryptoService.encryptWithAad(resMsg, msgEncContext.getAadHash());
 
-        ChatMessage chatMessage = getChatMessage(
+        ChatMessageEntity chatMessage = getChatMessage(
                 resMsgEnc,
                 chatSession,
                 messageOrder,
@@ -504,7 +504,7 @@ public class ChatService {
         return saveChatMessage(chatMessage);
     }
 
-    private CreateChatMsgRes toChatMsgRes(ChatMessage chatMessage) {
+    private CreateChatMsgRes toChatMsgRes(ChatMessageEntity chatMessage) {
         if (chatMessage == null) {
             throw new IllegalStateException("Chat message is required");
         }
@@ -516,7 +516,7 @@ public class ChatService {
         );
     }
 
-    private ChatMessage requireChatMessage(ChatMessage chatMessage, Long chatSessionId, int seq, String errorMessage) {
+    private ChatMessageEntity requireChatMessage(ChatMessageEntity chatMessage, Long chatSessionId, int seq, String errorMessage) {
         if (chatMessage != null && chatMessage.getId() != null) {
             return chatMessage;
         }
@@ -524,7 +524,7 @@ public class ChatService {
                 .orElseThrow(() -> new IllegalStateException(errorMessage));
     }
 
-    private String decryptChatMessage(ChatMessage chatMessage) {
+    private String decryptChatMessage(ChatMessageEntity chatMessage) {
         if (chatMessage == null || chatMessage.getEncryptionContext() == null) {
             throw new IllegalStateException("Chat message encryption context missing");
         }
@@ -534,15 +534,15 @@ public class ChatService {
         );
     }
 
-    private String buildMessagePrompt(User user, String content) {
+    private String buildMessagePrompt(UserEntity user, String content) {
         return buildPrompt(user, content, false);
     }
 
-    private String buildFirstMessagePrompt(User user, String content) {
+    private String buildFirstMessagePrompt(UserEntity user, String content) {
         return buildPrompt(user, content, true);
     }
 
-    private String buildPrompt(User user, String content, boolean firstMessage) {
+    private String buildPrompt(UserEntity user, String content, boolean firstMessage) {
         String templateName = resolveTemplateName(user.getBot().getName(), firstMessage);
 
         return templateService.generatePrompt(templateName, Map.of(
@@ -560,7 +560,7 @@ public class ChatService {
         };
     }
 
-    private void setSavedMsgId(AtomicReference<Long> savedMsgIdRef, ChatMessage savedMsg, String errorMessage) {
+    private void setSavedMsgId(AtomicReference<Long> savedMsgIdRef, ChatMessageEntity savedMsg, String errorMessage) {
         if (savedMsg == null || savedMsg.getId() == null) {
             throw new IllegalStateException(errorMessage);
         }
@@ -592,9 +592,9 @@ public class ChatService {
 //    public List<ChatMsg> getChatMsgs(Long chatSessionId) {
     public List<ChatMsg> getChatMsgs(Long userId, Long chatSessionId) {
         // TODO JWT 구현이 없으니 일단 userId 를 uri 로 받아서 검증하는 걸로, JWT 나오면 ~그땐 JWT에서 받거나 해야하나 고민
-        User user = userService.getActiveUser(userId);
+        UserEntity user = userService.getActiveUser(userId);
 
-        ChatSession chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
+        ChatSessionEntity chatSession = getChatSessionWithDiaryAndUserById(chatSessionId)
                 .orElseThrow(() -> ChatException.chatSessionNotFound(chatSessionId));
 
         if (!user.equals(chatSession.getDiary().getUser())) {
@@ -604,7 +604,7 @@ public class ChatService {
                     chatSession.getDiary().getUser().getId());
         }
 
-        List<ChatMessage> chatMessages = getChatMessages(chatSession);
+        List<ChatMessageEntity> chatMessages = getChatMessages(chatSession);
         if (chatMessages.isEmpty()) {
             throw ChatException.chatSessionHasNoMessages(chatSession.getId());
         }

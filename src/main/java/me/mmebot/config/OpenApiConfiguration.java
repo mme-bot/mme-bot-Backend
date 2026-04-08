@@ -56,15 +56,15 @@ public class OpenApiConfiguration {
                 .bearerFormat("JWT")
                 .description("Provide the access token as an Authorization header: 'Bearer <token>'. The token is issued by sign-in and reissue flows.");
 
-        String description = "REST API for MME Bot. All endpoints are served under '" + basePath
+        String description = "REST API for MME BotEntity. All endpoints are served under '" + basePath
                 + "'. Access tokens are JWTs issued by '" + jwtProperties.issuer() + "'.";
 
         OpenAPI openApi = new OpenAPI()
                 .info(new Info()
-                        .title("MME Bot API")
+                        .title("MME BotEntity API")
                         .version("v1")
                         .description(description)
-                        .contact(new Contact().name("MME Bot Platform")))
+                        .contact(new Contact().name("MME BotEntity Platform")))
                 .servers(servers)
                 .components(new Components().addSecuritySchemes(SECURITY_SCHEME_BEARER, bearerScheme));
 

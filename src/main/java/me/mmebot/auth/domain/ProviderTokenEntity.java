@@ -26,7 +26,7 @@ import me.mmebot.auth.domain.token.TokenCipherException;
 import me.mmebot.auth.domain.token.TokenCipherSpec;
 import me.mmebot.auth.service.TokenHashService;
 import me.mmebot.common.persistence.DatabaseNames;
-import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.domain.EncryptionContextEntity;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -39,7 +39,7 @@ import org.hibernate.annotations.UpdateTimestamp;
         uniqueConstraints = {
                 @UniqueConstraint(name = "uq_provider_client", columnNames = {"provider"})
         })
-public class ProviderToken {
+public class ProviderTokenEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -58,7 +58,7 @@ public class ProviderToken {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "authorization_context_id",
             foreignKey = @ForeignKey(name = "fk_provider_tokens_authorization_ctx"))
-    private EncryptionContext authorizationCodeContext;
+    private EncryptionContextEntity authorizationCodeContext;
 
     @Column(name = "refresh_token", columnDefinition = "TEXT")
     private String refreshToken;
@@ -66,7 +66,7 @@ public class ProviderToken {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "refresh_context_id",
             foreignKey = @ForeignKey(name = "fk_provider_tokens_refresh_ctx"))
-    private EncryptionContext refreshTokenContext;
+    private EncryptionContextEntity refreshTokenContext;
 
     @Column(name = "access_token", columnDefinition = "TEXT")
     private String accessToken;
@@ -74,7 +74,7 @@ public class ProviderToken {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "access_context_id",
             foreignKey = @ForeignKey(name = "fk_provider_tokens_access_ctx"))
-    private EncryptionContext accessTokenContext;
+    private EncryptionContextEntity accessTokenContext;
 
     @Column(name = "expires_at")
     private OffsetDateTime expiresAt;
@@ -199,7 +199,7 @@ public class ProviderToken {
     }
 
     private EncryptedToken asEncryptedToken(String payload,
-                                            EncryptionContext context,
+                                            EncryptionContextEntity context,
                                             String label) {
         if (payload == null || context == null) {
             throw new TokenCipherException("No encrypted " + label + " available");

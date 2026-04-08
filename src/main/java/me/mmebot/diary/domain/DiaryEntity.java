@@ -1,4 +1,4 @@
-package me.mmebot.user.domain;
+package me.mmebot.diary.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,14 +11,15 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import me.mmebot.common.persistence.DatabaseNames;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import me.mmebot.bot.domain.Bot;
-import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.domain.EncryptionContextEntity;
+import me.mmebot.user.domain.UserEntity;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -27,44 +28,31 @@ import org.hibernate.annotations.UpdateTimestamp;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = DatabaseNames.Tables.USERS, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
-        @Index(name = "idx_users_email", columnList = "email_hash")
+@Table(name = DatabaseNames.Tables.DIARY, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
+        @Index(name = "idx_diary_user_date", columnList = "user_id, date")
 })
-public class User {
+public class DiaryEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "user_id")
+    @Column(name = "diary_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "bot_id")
-    private Bot bot;
+    @JoinColumn(name = "user_id", nullable = false)
+    private UserEntity user;
 
-    @Column(
-//            nullable = false,
-            length = 320, unique = true)
-    private String emailHash;
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String content;
 
-    @Column(length = 320)
-    private String emailCipher;
+    @Column(nullable = false, length = 32)
+    private String emotion;
 
-    @Column(
-//            nullable = false,
-            length = 255)
-    private String password;
+    @Column(name = "summary_short", columnDefinition = "TEXT")
+    private String summaryShort;
 
-    @Column(nullable = false, length = 40)
-    private String nickname;
-
-    @Column(name = "is_sns", nullable = false)
-    private boolean sns;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "email_encrypt_id"
-//            , nullable = false
-    )
-    private EncryptionContext emailEncryptionContext;
+    @Column(nullable = false)
+    private LocalDate date;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -77,18 +65,22 @@ public class User {
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "encryption_context_id", nullable = false)
+    private EncryptionContextEntity encryptionContext;
+
     public boolean isDeleted() {
         return deletedAt != null;
     }
 
-    public User(String nickname, Bot bot) {
-        this.bot = bot;
-        this.createdAt = OffsetDateTime.now();
-        this.sns = false;
-        this.nickname = nickname;
+    public void update(String content, String emotion, String summaryShort, LocalDate date) {
+        this.content = content;
+        this.emotion = emotion;
+        this.summaryShort = summaryShort;
+        this.date = date;
     }
 
-    public void assignBot(Bot bot) {
-        this.bot = bot;
+    public void markDeleted(OffsetDateTime deletedAt) {
+        this.deletedAt = deletedAt;
     }
 }

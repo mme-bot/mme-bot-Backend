@@ -4,7 +4,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import me.mmebot.auth.application.port.out.LoadRefreshTokenPort;
 import me.mmebot.auth.application.port.out.SaveRefreshTokenPort;
-import me.mmebot.auth.domain.AuthToken;
+import me.mmebot.auth.domain.AuthTokenEntity;
 import me.mmebot.auth.repository.AuthTokenRepository;
 import org.springframework.stereotype.Component;
 
@@ -15,12 +15,12 @@ public class AuthTokenPersistenceAdapter implements LoadRefreshTokenPort, SaveRe
     private final AuthTokenRepository authTokenRepository;
 
     @Override
-    public Optional<AuthToken> loadByUserIdAndToken(Long userId, String token) {
+    public Optional<AuthTokenEntity> loadByUserIdAndToken(Long userId, String token) {
         return authTokenRepository.findByUserIdAndToken(userId, token);
     }
 
     @Override
-    public AuthToken save(AuthToken authToken) {
+    public AuthTokenEntity save(AuthTokenEntity authToken) {
         return authTokenRepository.save(authToken);
     }
 }

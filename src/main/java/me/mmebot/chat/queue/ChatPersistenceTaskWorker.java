@@ -4,12 +4,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.chat.config.ChatPersistenceQueueProperties;
-import me.mmebot.chat.domain.ChatMessage;
-import me.mmebot.chat.domain.ChatSession;
+import me.mmebot.chat.domain.ChatMessageEntity;
+import me.mmebot.chat.domain.ChatSessionEntity;
 import me.mmebot.chat.repository.ChatMessageRepository;
 import me.mmebot.chat.repository.ChatSessionRepository;
 import me.mmebot.chat.service.ChatService;
-import me.mmebot.user.domain.User;
+import me.mmebot.user.domain.UserEntity;
 import me.mmebot.user.service.UserService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -82,9 +82,9 @@ public class ChatPersistenceTaskWorker {
             return;
         }
 
-        ChatSession chatSession = chatSessionRepository.findById(payload.chatSessionId())
+        ChatSessionEntity chatSession = chatSessionRepository.findById(payload.chatSessionId())
                 .orElseThrow(() -> new IllegalStateException("Chat session not found: " + payload.chatSessionId()));
-        User user = userService.getActiveUser(payload.userId());
+        UserEntity user = userService.getActiveUser(payload.userId());
         chatService.saveFirstMessage(chatSession, user, payload.assistantContent());
         log.info("Persisted FIRST_MESSAGE task for session {}", payload.chatSessionId());
     }
@@ -104,10 +104,10 @@ public class ChatPersistenceTaskWorker {
             return;
         }
 
-        ChatSession chatSession = chatSessionRepository.findById(payload.chatSessionId())
+        ChatSessionEntity chatSession = chatSessionRepository.findById(payload.chatSessionId())
                 .orElseThrow(() -> new IllegalStateException("Chat session not found: " + payload.chatSessionId()));
-        User user = userService.getActiveUser(payload.userId());
-        ChatMessage replyMsg = chatMessageRepository.findById(payload.replyMessageId())
+        UserEntity user = userService.getActiveUser(payload.userId());
+        ChatMessageEntity replyMsg = chatMessageRepository.findById(payload.replyMessageId())
                 .orElseThrow(() -> new IllegalStateException("Reply message not found: " + payload.replyMessageId()));
 
         chatService.saveChatMessagePair(chatSession, user, replyMsg, payload.userContent(), payload.assistantContent());

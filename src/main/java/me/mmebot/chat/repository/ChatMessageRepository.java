@@ -3,24 +3,24 @@ package me.mmebot.chat.repository;
 import java.util.List;
 import java.util.Optional;
 
-import me.mmebot.chat.domain.ChatMessage;
-import me.mmebot.chat.domain.ChatSession;
+import me.mmebot.chat.domain.ChatMessageEntity;
+import me.mmebot.chat.domain.ChatSessionEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
-public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
+public interface ChatMessageRepository extends JpaRepository<ChatMessageEntity, Long> {
 
     @Query("""
     select cm
-    from ChatMessage cm
+    from ChatMessageEntity cm
     join fetch cm.encryptionContext ec
     where cm.chatSession = :chatSession
 """)
-    List<ChatMessage> findAllByChatSessionWithEnc(ChatSession chatSession);
+    List<ChatMessageEntity> findAllByChatSessionWithEnc(ChatSessionEntity chatSession);
 
-    List<ChatMessage> findAllByReplyMsgId(Long replyMsgId);
+    List<ChatMessageEntity> findAllByReplyMsgId(Long replyMsgId);
 
     boolean existsByChatSessionIdAndSeq(Long chatSessionId, Integer seq);
 
-    Optional<ChatMessage> findByChatSessionIdAndSeq(Long chatSessionId, Integer seq);
+    Optional<ChatMessageEntity> findByChatSessionIdAndSeq(Long chatSessionId, Integer seq);
 }

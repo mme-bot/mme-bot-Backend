@@ -1,8 +1,8 @@
 package me.mmebot.auth.application.port.out;
 
 import java.util.Optional;
-import me.mmebot.auth.domain.AuthToken;
+import me.mmebot.auth.domain.AuthTokenEntity;
 
 public interface LoadRefreshTokenPort {
-    Optional<AuthToken> loadByUserIdAndToken(Long userId, String token);
+    Optional<AuthTokenEntity> loadByUserIdAndToken(Long userId, String token);
 }

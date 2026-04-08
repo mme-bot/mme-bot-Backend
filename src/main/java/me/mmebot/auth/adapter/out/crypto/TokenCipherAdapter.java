@@ -5,7 +5,7 @@ import me.mmebot.auth.application.port.out.TokenCipherPort;
 import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.token.EncryptedToken;
 import me.mmebot.auth.service.TokenCiperService;
-import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.domain.EncryptionContextEntity;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -20,7 +20,7 @@ public class TokenCipherAdapter implements TokenCipherPort {
     }
 
     @Override
-    public String decrypt(String token, EncryptionContext context, AuthTokenType type, String aadSource) {
+    public String decrypt(String token, EncryptionContextEntity context, AuthTokenType type, String aadSource) {
         return tokenCiperService.getDecodeToken(token, context, type, aadSource);
     }
 }

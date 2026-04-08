@@ -8,7 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.domain.EncryptionContextEntity;
 import me.mmebot.openai.dto.ChatMessageRole;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -22,7 +22,7 @@ import org.hibernate.annotations.CreationTimestamp;
 }, uniqueConstraints = {
         @UniqueConstraint(name = "uk_chat_message_session_seq", columnNames = {"chat_session_id", "seq"})
 })
-public class ChatMessage {
+public class ChatMessageEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,7 +31,7 @@ public class ChatMessage {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chat_session_id", nullable = false)
-    private ChatSession chatSession;
+    private ChatSessionEntity chatSession;
 
     @Column(nullable = false)
     private Integer seq;
@@ -45,17 +45,17 @@ public class ChatMessage {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "encryption_context_id", nullable = false)
-    private EncryptionContext encryptionContext;
+    private EncryptionContextEntity encryptionContext;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reply_to_message_id")
-    private ChatMessage replyMsg;
+    private ChatMessageEntity replyMsg;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
-    public ChatMessage(ChatSession chatSession, Integer seq, ChatMessageRole role, String content, EncryptionContext encryptionContext, ChatMessage replyMsg) {
+    public ChatMessageEntity(ChatSessionEntity chatSession, Integer seq, ChatMessageRole role, String content, EncryptionContextEntity encryptionContext, ChatMessageEntity replyMsg) {
         this.chatSession = chatSession;
         this.seq = seq;
         this.role = role;
@@ -65,7 +65,7 @@ public class ChatMessage {
         this.replyMsg = replyMsg;
     }
 
-    public ChatMessage(ChatSession chatSession, Integer seq, ChatMessageRole role, String content, EncryptionContext encryptionContext) {
+    public ChatMessageEntity(ChatSessionEntity chatSession, Integer seq, ChatMessageRole role, String content, EncryptionContextEntity encryptionContext) {
         this.chatSession = chatSession;
         this.seq = seq;
         this.role = role;
@@ -78,7 +78,7 @@ public class ChatMessage {
         return role == ChatMessageRole.USER;
     }
 
-    public void updateReplyMsg(ChatMessage replyMsg) {
+    public void updateReplyMsg(ChatMessageEntity replyMsg) {
         this.replyMsg = replyMsg;
     }
 }

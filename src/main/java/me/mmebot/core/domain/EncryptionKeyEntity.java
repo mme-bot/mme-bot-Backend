@@ -26,7 +26,7 @@ import org.hibernate.annotations.Type;
 @Builder
 @Entity
 @Table(name = DatabaseNames.Tables.KEYS, schema = DatabaseNames.Schemas.MME_BOT)
-public class EncryptionKey {
+public class EncryptionKeyEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -1,9 +1,9 @@
 package me.mmebot.chat.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import me.mmebot.bot.domain.Bot;
 import me.mmebot.chat.api.dto.ChatMsgReq.CreateChatMsgReq;
 import me.mmebot.chat.api.dto.ChatMsgReq.StartChatReq;
+import me.mmebot.bot.domain.BotEntity;
 import me.mmebot.chat.api.dto.ChatMsgRes.ChatMsg;
 import me.mmebot.chat.api.dto.ChatMsgRes.ChatStreamPayload;
 import me.mmebot.chat.api.dto.ChatMsgRes.CreateChatMsgRes;
@@ -11,17 +11,17 @@ import me.mmebot.chat.api.dto.ChatMsgRes.StartChatRes;
 import me.mmebot.chat.api.dto.ChatMsgRes.StreamStatus;
 import me.mmebot.chat.api.dto.ChatSessionReq.CreateChatSessionReq;
 import me.mmebot.chat.api.dto.ChatSessionRes.CreateChatSessionRes;
-import me.mmebot.chat.domain.ChatMessage;
-import me.mmebot.chat.domain.ChatSession;
+import me.mmebot.chat.domain.ChatMessageEntity;
+import me.mmebot.chat.domain.ChatSessionEntity;
 import me.mmebot.chat.domain.ChatSessionStatus;
 import me.mmebot.chat.exception.ChatException;
 import me.mmebot.chat.repository.ChatMessageRepository;
 import me.mmebot.chat.repository.ChatSessionRepository;
 import me.mmebot.common.crypto.AesGcmCryptoService;
-import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.domain.EncryptionContextEntity;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.core.service.TemplateService;
-import me.mmebot.diary.domain.Diary;
+import me.mmebot.diary.domain.DiaryEntity;
 import me.mmebot.diary.service.DiaryService;
 import me.mmebot.openai.dto.ChatMessageRole;
 import me.mmebot.openai.dto.ChatStreamResponse;
@@ -29,7 +29,7 @@ import me.mmebot.openai.service.OpenAIService;
 import me.mmebot.stream.StreamContextStore;
 import me.mmebot.stream.StreamContextContent.ChatStreamContext;
 import me.mmebot.stream.StreamContextContent.FirstChatStreamContext;
-import me.mmebot.user.domain.User;
+import me.mmebot.user.domain.UserEntity;
 import me.mmebot.user.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -94,33 +94,33 @@ class ChatServiceTest {
     void 오늘_일기로_채팅세션을_생성() {
         Long userId = 21L;
         Long diaryId = 31L;
-        User user = buildUser(userId);
-        Diary diary = buildDiary(diaryId, user, LocalDate.now(), "short-summary-enc");
-        EncryptionContext context = encryptionContext("ctx", 1);
+        UserEntity user = buildUser(userId);
+        DiaryEntity diary = buildDiary(diaryId, user, LocalDate.now(), "short-summary-enc");
+        EncryptionContextEntity context = encryptionContext("ctx", 1);
 
         when(diaryService.getActiveDiary(diaryId)).thenReturn(diary);
         when(chatSessionRepository.findByDiaryId(diaryId)).thenReturn(Optional.empty());
         when(encryptionContextFactory.createContext(userId.toString())).thenReturn(context);
         // session 객체를 save 할 경우, id = 77 객체를 돌려주도록 함.
         doAnswer(invocation -> {
-            ChatSession session = invocation.getArgument(0);
+            ChatSessionEntity session = invocation.getArgument(0);
             ReflectionTestUtils.setField(session, "id", 77L);
             return session;
-        }).when(chatSessionRepository).save(any(ChatSession.class));
+        }).when(chatSessionRepository).save(any(ChatSessionEntity.class));
 
         CreateChatSessionRes res = chatService.createChatSession(new CreateChatSessionReq(userId, diaryId));
 
         assertThat(res.chatSessionId()).isEqualTo(77L);
-        verify(chatSessionRepository).save(any(ChatSession.class));
+        verify(chatSessionRepository).save(any(ChatSessionEntity.class));
     }
 
     @Test
     void 동일_일기세션이_이미_존재하면_생성을_차단() {
         Long userId = 99L;
         Long diaryId = 551L;
-        User user = buildUser(userId);
-        Diary diary = buildDiary(diaryId, user, LocalDate.now(), "enc");
-        ChatSession existing = ChatSession.builder()
+        UserEntity user = buildUser(userId);
+        DiaryEntity diary = buildDiary(diaryId, user, LocalDate.now(), "enc");
+        ChatSessionEntity existing = ChatSessionEntity.builder()
                 .id(88L)
                 .diary(diary)
                 .bot(user.getBot())
@@ -142,9 +142,9 @@ class ChatServiceTest {
         Long chatSessionId = 44L;
         Long replyMsgId = 101L;
         String streamId = "stream-1";
-        User user = buildUser(userId);
-        Diary diary = buildDiary(78L, user, LocalDate.now(), "summary-enc");
-        ChatSession chatSession = ChatSession.builder()
+        UserEntity user = buildUser(userId);
+        DiaryEntity diary = buildDiary(78L, user, LocalDate.now(), "summary-enc");
+        ChatSessionEntity chatSession = ChatSessionEntity.builder()
                 .id(chatSessionId)
                 .diary(diary)
                 .bot(user.getBot())
@@ -152,8 +152,8 @@ class ChatServiceTest {
                 .sendCount(0)
                 .encryptionContext(encryptionContext("session", 5))
                 .build();
-        EncryptionContext replyEncCtx = encryptionContext("reply", 7);
-        ChatMessage replyMsg = ChatMessage.builder()
+        EncryptionContextEntity replyEncCtx = encryptionContext("reply", 7);
+        ChatMessageEntity replyMsg = ChatMessageEntity.builder()
                 .id(replyMsgId)
                 .chatSession(chatSession)
                 .seq(1)
@@ -162,7 +162,7 @@ class ChatServiceTest {
                 .encryptionContext(replyEncCtx)
                 .createdAt(OffsetDateTime.now())
                 .build();
-        EncryptionContext userEnc = encryptionContext("aad-user", 9);
+        EncryptionContextEntity userEnc = encryptionContext("aad-user", 9);
         ChatStreamContext streamContext = new ChatStreamContext(
                 chatSessionId,
                 userId,
@@ -185,8 +185,8 @@ class ChatServiceTest {
         when(aesGcmCryptoService.encryptWithAad(eq("테스트"), any(byte[].class))).thenReturn("enc-ai");
         lenient().when(aesGcmCryptoService.decryptWithAad(eq("enc-user"), any(byte[].class))).thenReturn("message");
         lenient().when(aesGcmCryptoService.decryptWithAad(eq("enc-ai"), any(byte[].class))).thenReturn("테스트");
-        when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
-            ChatMessage msg = invocation.getArgument(0);
+        when(chatMessageRepository.save(any(ChatMessageEntity.class))).thenAnswer(invocation -> {
+            ChatMessageEntity msg = invocation.getArgument(0);
             ReflectionTestUtils.setField(msg, "id", 300L + msg.getSeq());
             return msg;
         });
@@ -202,7 +202,7 @@ class ChatServiceTest {
         assertThat(responses.get(2).status()).isEqualTo(StreamStatus.DONE);
         assertThat(responses.get(2).msgId()).isEqualTo(303L);
 
-        verify(chatMessageRepository, times(2)).save(any(ChatMessage.class));
+        verify(chatMessageRepository, times(2)).save(any(ChatMessageEntity.class));
         verify(streamContextStore).remove(streamId);
     }
 
@@ -212,9 +212,9 @@ class ChatServiceTest {
         Long sessionId = 2L;
         Long replyMsgId = 10L;
         String streamId = "stream-dup";
-        User user = buildUser(userId);
-        Diary diary = buildDiary(3L, user, LocalDate.now(), "enc");
-        ChatSession chatSession = ChatSession.builder()
+        UserEntity user = buildUser(userId);
+        DiaryEntity diary = buildDiary(3L, user, LocalDate.now(), "enc");
+        ChatSessionEntity chatSession = ChatSessionEntity.builder()
                 .id(sessionId)
                 .diary(diary)
                 .bot(user.getBot())
@@ -222,7 +222,7 @@ class ChatServiceTest {
                 .sendCount(0)
                 .encryptionContext(encryptionContext("session", 3))
                 .build();
-        ChatMessage replyMsg = ChatMessage.builder()
+        ChatMessageEntity replyMsg = ChatMessageEntity.builder()
                 .id(replyMsgId)
                 .chatSession(chatSession)
                 .seq(3)
@@ -255,9 +255,9 @@ class ChatServiceTest {
         Long sessionId = 2L;
         Long replyMsgId = 10L;
         String streamId = "stream-limit";
-        User user = buildUser(userId);
-        Diary diary = buildDiary(3L, user, LocalDate.now(), "enc");
-        ChatSession chatSession = ChatSession.builder()
+        UserEntity user = buildUser(userId);
+        DiaryEntity diary = buildDiary(3L, user, LocalDate.now(), "enc");
+        ChatSessionEntity chatSession = ChatSessionEntity.builder()
                 .id(sessionId)
                 .diary(diary)
                 .bot(user.getBot())
@@ -265,7 +265,7 @@ class ChatServiceTest {
                 .sendCount(0)
                 .encryptionContext(encryptionContext("session", 3))
                 .build();
-        ChatMessage replyMsg = ChatMessage.builder()
+        ChatMessageEntity replyMsg = ChatMessageEntity.builder()
                 .id(replyMsgId)
                 .chatSession(chatSession)
                 .seq(1)
@@ -274,7 +274,7 @@ class ChatServiceTest {
                 .encryptionContext(encryptionContext("reply", 4))
                 .createdAt(OffsetDateTime.now())
                 .build();
-        List<ChatMessage> chatMessages = new java.util.ArrayList<>();
+        List<ChatMessageEntity> chatMessages = new java.util.ArrayList<>();
         chatMessages.add(replyMsg);
         for (int i = 0; i < 21; i++) {
             chatMessages.add(buildChatMessage(chatSession, i + 2, ChatMessageRole.USER));
@@ -303,12 +303,12 @@ class ChatServiceTest {
         Long userId = 5L;
         Long sessionId = 9L;
         String streamId = "stream-first";
-        User user = buildUser(userId);
-        EncryptionContext diaryEnc = encryptionContext("diary", 15);
-        Diary diary = buildDiary(777L, user, LocalDate.now(), "short-enc");
+        UserEntity user = buildUser(userId);
+        EncryptionContextEntity diaryEnc = encryptionContext("diary", 15);
+        DiaryEntity diary = buildDiary(777L, user, LocalDate.now(), "short-enc");
         ReflectionTestUtils.setField(diary, "encryptionContext", diaryEnc);
         ReflectionTestUtils.setField(diary, "content", "short-enc");
-        ChatSession chatSession = ChatSession.builder()
+        ChatSessionEntity chatSession = ChatSessionEntity.builder()
                 .id(sessionId)
                 .diary(diary)
                 .bot(user.getBot())
@@ -316,7 +316,7 @@ class ChatServiceTest {
                 .sendCount(0)
                 .encryptionContext(encryptionContext("session", 8))
                 .build();
-        EncryptionContext msgEnc = encryptionContext("msg", 20);
+        EncryptionContextEntity msgEnc = encryptionContext("msg", 20);
         FirstChatStreamContext streamContext = new FirstChatStreamContext(
                 sessionId,
                 userId,
@@ -333,8 +333,8 @@ class ChatServiceTest {
         when(encryptionContextFactory.createContext(userId.toString())).thenReturn(msgEnc);
         when(aesGcmCryptoService.encryptWithAad(eq("first-msg"), any(byte[].class))).thenReturn("first-msg-enc");
         lenient().when(aesGcmCryptoService.decryptWithAad(eq("first-msg-enc"), any(byte[].class))).thenReturn("first-msg");
-        when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
-            ChatMessage message = invocation.getArgument(0);
+        when(chatMessageRepository.save(any(ChatMessageEntity.class))).thenAnswer(invocation -> {
+            ChatMessageEntity message = invocation.getArgument(0);
             ReflectionTestUtils.setField(message, "id", 100L + message.getSeq());
             return message;
         });
@@ -350,7 +350,7 @@ class ChatServiceTest {
         assertThat(responses.get(2).status()).isEqualTo(StreamStatus.DONE);
         assertThat(responses.get(2).msgId()).isEqualTo(101L);
 
-        verify(chatMessageRepository).save(any(ChatMessage.class));
+        verify(chatMessageRepository).save(any(ChatMessageEntity.class));
         verify(streamContextStore).remove(streamId);
     }
 
@@ -358,10 +358,10 @@ class ChatServiceTest {
     void 단일_응답으로_첫_채팅을_생성() {
         Long userId = 7L;
         Long sessionId = 15L;
-        User user = buildUser(userId);
-        Diary diary = buildDiary(900L, user, LocalDate.now(), "short" );
+        UserEntity user = buildUser(userId);
+        DiaryEntity diary = buildDiary(900L, user, LocalDate.now(), "short" );
         ReflectionTestUtils.setField(diary, "content", "enc-content");
-        ChatSession chatSession = ChatSession.builder()
+        ChatSessionEntity chatSession = ChatSessionEntity.builder()
                 .id(sessionId)
                 .diary(diary)
                 .bot(user.getBot())
@@ -369,8 +369,8 @@ class ChatServiceTest {
                 .sendCount(0)
                 .encryptionContext(encryptionContext("session", 13))
                 .build();
-        EncryptionContext diaryEnc = diary.getEncryptionContext();
-        EncryptionContext msgEnc = encryptionContext("first", 40);
+        EncryptionContextEntity diaryEnc = diary.getEncryptionContext();
+        EncryptionContextEntity msgEnc = encryptionContext("first", 40);
 
         when(userService.getActiveUser(userId)).thenReturn(user);
         when(chatSessionRepository.findWithDiaryAndUser(sessionId)).thenReturn(Optional.of(chatSession));
@@ -380,8 +380,8 @@ class ChatServiceTest {
         when(encryptionContextFactory.createContext(userId.toString())).thenReturn(msgEnc);
         when(aesGcmCryptoService.encryptWithAad(eq("assistant"), any(byte[].class))).thenReturn("assistant-enc");
         when(aesGcmCryptoService.decryptWithAad("assistant-enc", msgEnc.getAadHash())).thenReturn("assistant");
-        when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
-            ChatMessage message = invocation.getArgument(0);
+        when(chatMessageRepository.save(any(ChatMessageEntity.class))).thenAnswer(invocation -> {
+            ChatMessageEntity message = invocation.getArgument(0);
             ReflectionTestUtils.setField(message, "id", 400L + message.getSeq());
             return message;
         });
@@ -390,15 +390,15 @@ class ChatServiceTest {
 
         assertThat(res.chatMsgId()).isEqualTo(401L);
         assertThat(res.msg()).isEqualTo("assistant");
-        verify(chatMessageRepository).save(any(ChatMessage.class));
+        verify(chatMessageRepository).save(any(ChatMessageEntity.class));
     }
 
     @Test
     void 채팅_메시지_목록을_정렬된_복호화결과로_반환() {
         Long sessionId = 888L;
-        User user = buildUser(321L);
-        Diary diary = buildDiary(55L, user, LocalDate.now(), "enc");
-        ChatSession chatSession = ChatSession.builder()
+        UserEntity user = buildUser(321L);
+        DiaryEntity diary = buildDiary(55L, user, LocalDate.now(), "enc");
+        ChatSessionEntity chatSession = ChatSessionEntity.builder()
                 .id(sessionId)
                 .diary(diary)
                 .bot(user.getBot())
@@ -406,9 +406,9 @@ class ChatServiceTest {
                 .sendCount(0)
                 .encryptionContext(encryptionContext("session", 22))
                 .build();
-        EncryptionContext msgEnc1 = encryptionContext("m1", 30);
-        EncryptionContext msgEnc2 = encryptionContext("m2", 31);
-        ChatMessage second = ChatMessage.builder()
+        EncryptionContextEntity msgEnc1 = encryptionContext("m1", 30);
+        EncryptionContextEntity msgEnc2 = encryptionContext("m2", 31);
+        ChatMessageEntity second = ChatMessageEntity.builder()
                 .id(2L)
                 .chatSession(chatSession)
                 .seq(2)
@@ -417,7 +417,7 @@ class ChatServiceTest {
                 .encryptionContext(msgEnc2)
                 .createdAt(OffsetDateTime.now())
                 .build();
-        ChatMessage first = ChatMessage.builder()
+        ChatMessageEntity first = ChatMessageEntity.builder()
                 .id(1L)
                 .chatSession(chatSession)
                 .seq(1)
@@ -447,9 +447,9 @@ class ChatServiceTest {
         Long userId = 11L;
         Long chatSessionId = 41L;
         Long replyMsgId = 300L;
-        User user = buildUser(userId);
-        Diary diary = buildDiary(901L, user, LocalDate.now(), "sum");
-        ChatSession chatSession = ChatSession.builder()
+        UserEntity user = buildUser(userId);
+        DiaryEntity diary = buildDiary(901L, user, LocalDate.now(), "sum");
+        ChatSessionEntity chatSession = ChatSessionEntity.builder()
                 .id(chatSessionId)
                 .diary(diary)
                 .bot(user.getBot())
@@ -457,7 +457,7 @@ class ChatServiceTest {
                 .sendCount(0)
                 .encryptionContext(encryptionContext("session", 90))
                 .build();
-        ChatMessage replyMsg = ChatMessage.builder()
+        ChatMessageEntity replyMsg = ChatMessageEntity.builder()
                 .id(replyMsgId)
                 .chatSession(chatSession)
                 .seq(1)
@@ -466,7 +466,7 @@ class ChatServiceTest {
                 .encryptionContext(encryptionContext("reply", 91))
                 .createdAt(OffsetDateTime.now())
                 .build();
-        EncryptionContext userEnc = encryptionContext("user", 92);
+        EncryptionContextEntity userEnc = encryptionContext("user", 92);
 
         when(userService.getActiveUser(userId)).thenReturn(user);
         when(chatSessionRepository.findWithDiaryAndUser(chatSessionId)).thenReturn(Optional.of(chatSession));
@@ -481,8 +481,8 @@ class ChatServiceTest {
         when(aesGcmCryptoService.encryptWithAad(eq("assistant"), any(byte[].class))).thenReturn("assistant-enc");
         when(aesGcmCryptoService.decryptWithAad("message-enc", userEnc.getAadHash())).thenReturn("message");
         when(aesGcmCryptoService.decryptWithAad("assistant-enc", userEnc.getAadHash())).thenReturn("assistant");
-        when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
-            ChatMessage message = invocation.getArgument(0);
+        when(chatMessageRepository.save(any(ChatMessageEntity.class))).thenAnswer(invocation -> {
+            ChatMessageEntity message = invocation.getArgument(0);
             ReflectionTestUtils.setField(message, "id", 500L + message.getSeq());
             return message;
         });
@@ -497,17 +497,17 @@ class ChatServiceTest {
         assertThat(result.get(0).msg()).isEqualTo("message");
         assertThat(result.get(1).role()).isEqualTo(ChatMessageRole.ASSISTANT);
         assertThat(result.get(1).msg()).isEqualTo("assistant");
-        verify(chatMessageRepository, times(2)).save(any(ChatMessage.class));
+        verify(chatMessageRepository, times(2)).save(any(ChatMessageEntity.class));
     }
 
-    private User buildUser(Long id) {
-        Bot bot = Bot.builder()
+    private UserEntity buildUser(Long id) {
+        BotEntity bot = BotEntity.builder()
                 .id(5L)
                 .name("몽몽")
                 .persona("persona")
                 .script("script")
                 .build();
-        return User.builder()
+        return UserEntity.builder()
                 .id(id)
                 .bot(bot)
                 .nickname("nickname" + id)
@@ -515,8 +515,8 @@ class ChatServiceTest {
                 .build();
     }
 
-    private Diary buildDiary(Long id, User user, LocalDate date, String summaryShort) {
-        return Diary.builder()
+    private DiaryEntity buildDiary(Long id, UserEntity user, LocalDate date, String summaryShort) {
+        return DiaryEntity.builder()
                 .id(id)
                 .user(user)
                 .content("content")
@@ -527,8 +527,8 @@ class ChatServiceTest {
                 .build();
     }
 
-    private ChatMessage buildChatMessage(ChatSession chatSession, int seq, ChatMessageRole role) {
-        return ChatMessage.builder()
+    private ChatMessageEntity buildChatMessage(ChatSessionEntity chatSession, int seq, ChatMessageRole role) {
+        return ChatMessageEntity.builder()
                 .id((long) seq)
                 .chatSession(chatSession)
                 .seq(seq)
@@ -539,9 +539,9 @@ class ChatServiceTest {
                 .build();
     }
 
-    private EncryptionContext encryptionContext(String seed, int salt) {
+    private EncryptionContextEntity encryptionContext(String seed, int salt) {
         byte[] aad = (seed + salt).getBytes(StandardCharsets.UTF_8);
-        return EncryptionContext.builder()
+        return EncryptionContextEntity.builder()
                 .id((long) salt)
                 .iv(new byte[]{1, 2, 3})
                 .tag(new byte[]{4, 5, 6})

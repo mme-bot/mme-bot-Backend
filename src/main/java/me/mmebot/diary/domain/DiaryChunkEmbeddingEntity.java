@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @Entity
 @Table(name = DatabaseNames.Tables.DIARY_CHUNK_EMBEDDING, schema = DatabaseNames.Schemas.MME_BOT)
-public class DiaryChunkEmbedding {
+public class DiaryChunkEmbeddingEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,7 +32,7 @@ public class DiaryChunkEmbedding {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "diary_chunk_id", nullable = false, unique = true)
-    private DiaryChunk diaryChunk;
+    private DiaryChunkEntity diaryChunk;
 
     @Convert(converter = VectorFloatArrayConverter.class)
     @Column(nullable = false, columnDefinition = "mmebot.vector(1536)")

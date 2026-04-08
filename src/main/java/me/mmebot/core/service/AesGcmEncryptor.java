@@ -11,8 +11,8 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.core.config.EncryptionKeyProperties;
-import me.mmebot.core.domain.EncryptionContext;
-import me.mmebot.core.domain.EncryptionKey;
+import me.mmebot.core.domain.EncryptionContextEntity;
+import me.mmebot.core.domain.EncryptionKeyEntity;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -30,13 +30,13 @@ public class AesGcmEncryptor {
     }
 
     public String decrypt(String encryptedPayload,
-                          EncryptionContext context,
+                          EncryptionContextEntity context,
                           @Nullable byte[] additionalData) {
         Objects.requireNonNull(encryptedPayload, "encryptedPayload must not be null");
         Objects.requireNonNull(context, "context must not be null");
 
         try {
-            EncryptionKey key = context.getKey();
+            EncryptionKeyEntity key = context.getKey();
             if (key == null || key.getKeyMaterial() == null) {
                 throw new EncryptionOperationException("Encryption key material is missing");
             }
@@ -92,12 +92,12 @@ public class AesGcmEncryptor {
         return true;
     }
 
-    public EncryptionResult encrypt(String plainText, EncryptionContext context, @Nullable byte[] additionalData) {
+    public EncryptionResult encrypt(String plainText, EncryptionContextEntity context, @Nullable byte[] additionalData) {
         Objects.requireNonNull(plainText, "plainText must not be null");
         Objects.requireNonNull(context, "context must not be null");
 
         try {
-            EncryptionKey key = context.getKey();
+            EncryptionKeyEntity key = context.getKey();
             if (key == null || key.getKeyMaterial() == null) {
                 throw new EncryptionOperationException("Encryption key material is missing");
             }

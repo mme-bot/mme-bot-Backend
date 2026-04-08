@@ -20,8 +20,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import me.mmebot.core.domain.EncryptionContext;
-import me.mmebot.user.domain.User;
+import me.mmebot.core.domain.EncryptionContextEntity;
+import me.mmebot.user.domain.UserEntity;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Getter
@@ -32,7 +32,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @Table(name = DatabaseNames.Tables.AUTH_TOKEN, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
         @Index(name = "idx_auth_token_user_issued_desc", columnList = "user_id, issued_at DESC")
 })
-public class AuthToken {
+public class AuthTokenEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,7 +41,7 @@ public class AuthToken {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    private UserEntity user;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
@@ -68,9 +68,9 @@ public class AuthToken {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "encryption_context_id", nullable = false)
-    private EncryptionContext encryptionContext;
+    private EncryptionContextEntity encryptionContext;
 
-//    public AuthToken(User user,
+//    public AuthTokenEntity(UserEntity user,
 //                     AuthTokenType type,
 //                     String token,
 //                     OffsetDateTime expiredAt,
@@ -81,10 +81,10 @@ public class AuthToken {
 //        this(user, type, token, expiredAt, ipAddress, userAgent, tokenCipher, tokenHashService, null);
 //    }
 
-    public AuthToken(User user,
+    public AuthTokenEntity(UserEntity user,
                      AuthTokenType type,
                      String token,
-                     EncryptionContext context,
+                     EncryptionContextEntity context,
                      OffsetDateTime expiredAt,
                      String ipAddress,
                      String userAgent) {

@@ -8,7 +8,7 @@ import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import me.mmebot.chat.domain.ChatMessage;
+import me.mmebot.chat.domain.ChatMessageEntity;
 import me.mmebot.common.KoreanTextAnalyzer;
 import me.mmebot.openai.dto.ChatStreamResponse;
 import me.mmebot.openai.exception.OpenAIException;
@@ -168,11 +168,11 @@ public class OpenAIService implements OpenAIChatPort {
         );
     }
 
-    public Flux<ChatStreamResponse> sendChatMessage(String prompt, List<ChatMessage> messages, String reqMsg) {
+    public Flux<ChatStreamResponse> sendChatMessage(String prompt, List<ChatMessageEntity> messages, String reqMsg) {
         return summarizeStream(requestBuilder.buildMessages(prompt, messages, reqMsg));
     }
 
-    public String sendChatMessageSync(String prompt, List<ChatMessage> messages, String reqMsg) {
+    public String sendChatMessageSync(String prompt, List<ChatMessageEntity> messages, String reqMsg) {
         return summarizeMessages(requestBuilder.buildMessages(prompt, messages, reqMsg));
     }
 
@@ -181,7 +181,7 @@ public class OpenAIService implements OpenAIChatPort {
             String botScript,
             String chatStatus,
             String emotion,
-            List<ChatMessage> chatMsgList,
+            List<ChatMessageEntity> chatMsgList,
             String reqMsg,
             String nickname
     ) {
@@ -224,7 +224,7 @@ public class OpenAIService implements OpenAIChatPort {
             String botScript,
             String chatStatus,
             String emotion,
-            List<ChatMessage> chatMsgList,
+            List<ChatMessageEntity> chatMsgList,
             String reqMsg,
             String nickname
     ) {

@@ -1,19 +1,19 @@
 package me.mmebot.chat.repository;
 
 import java.util.Optional;
-import me.mmebot.chat.domain.ChatSession;
+import me.mmebot.chat.domain.ChatSessionEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
-public interface ChatSessionRepository extends JpaRepository<ChatSession, Long> {
+public interface ChatSessionRepository extends JpaRepository<ChatSessionEntity, Long> {
 
-    Optional<ChatSession> findByDiaryId(Long diaryId);
+    Optional<ChatSessionEntity> findByDiaryId(Long diaryId);
     @Query("""
-select cs from ChatSession cs
+select cs from ChatSessionEntity cs
 join fetch cs.diary d
 join fetch d.user
 where cs.id = :id
 """)
-    Optional<ChatSession> findWithDiaryAndUser(Long id);
+    Optional<ChatSessionEntity> findWithDiaryAndUser(Long id);
 
 }

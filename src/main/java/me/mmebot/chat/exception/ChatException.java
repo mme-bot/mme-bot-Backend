@@ -13,7 +13,7 @@ public class ChatException extends ApiException {
     public static ChatException diaryOwnerMismatch(Long diaryId, Long requesterUserId, Long ownerUserId) {
         return new ChatException(
                 HttpStatus.FORBIDDEN,
-                "User %d cannot create a chat session for diary %d owned by user %d".formatted(
+                "UserEntity %d cannot create a chat session for diary %d owned by user %d".formatted(
                         requesterUserId,
                         diaryId,
                         ownerUserId
@@ -25,7 +25,7 @@ public class ChatException extends ApiException {
     public static ChatException diaryNotFromToday(Long diaryId, LocalDate diaryDate, LocalDate today) {
         return new ChatException(
                 HttpStatus.BAD_REQUEST,
-                "Diary %d is dated %s but chat sessions can only start on %s".formatted(
+                "DiaryEntity %d is dated %s but chat sessions can only start on %s".formatted(
                         diaryId,
                         diaryDate,
                         today
@@ -96,7 +96,7 @@ public class ChatException extends ApiException {
     public static ChatException chatSessionUserMismatch(Long chatSessionId, Long requesterUserId, Long ownerUserId) {
         return new ChatException(
                 HttpStatus.FORBIDDEN,
-                "User %d cannot access chat session %d owned by user %d".formatted(
+                "UserEntity %d cannot access chat session %d owned by user %d".formatted(
                         requesterUserId,
                         chatSessionId,
                         ownerUserId
@@ -108,7 +108,7 @@ public class ChatException extends ApiException {
     public static ChatException diaryNotFound(Long chatSessionId) {
         return new ChatException(
                 HttpStatus.FORBIDDEN,
-                "Chat Session Id %d Diary Not Found".formatted(
+                "Chat Session Id %d DiaryEntity Not Found".formatted(
                         chatSessionId
                 ),
                 "chat.session.diary_not_found"

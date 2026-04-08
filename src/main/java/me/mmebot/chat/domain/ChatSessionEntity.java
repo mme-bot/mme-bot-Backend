@@ -8,9 +8,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import me.mmebot.bot.domain.Bot;
-import me.mmebot.core.domain.EncryptionContext;
-import me.mmebot.diary.domain.Diary;
+import me.mmebot.bot.domain.BotEntity;
+import me.mmebot.core.domain.EncryptionContextEntity;
+import me.mmebot.diary.domain.DiaryEntity;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Getter
@@ -21,7 +21,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @Table(name = DatabaseNames.Tables.CHAT_SESSION, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
         @Index(name = "idx_chat_session_diary_id", columnList = "diary_id", unique = true)
 })
-public class ChatSession {
+public class ChatSessionEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,11 +30,11 @@ public class ChatSession {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "diary_id", nullable = false, unique = true)
-    private Diary diary;
+    private DiaryEntity diary;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bot_id", nullable = false)
-    private Bot bot;
+    private BotEntity bot;
 
     @Column(nullable = false, length = 32)
     @Enumerated(EnumType.STRING)
@@ -49,7 +49,7 @@ public class ChatSession {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "encryption_context_id", nullable = false)
-    private EncryptionContext encryptionContext;
+    private EncryptionContextEntity encryptionContext;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
