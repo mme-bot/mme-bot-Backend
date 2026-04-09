@@ -3,6 +3,7 @@ package me.mmebot.auth.adapter.in.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import me.mmebot.auth.adapter.in.web.dto.CheckEmailVerificationRequest;
 import me.mmebot.auth.adapter.in.web.dto.LogoutRequest;
 import me.mmebot.auth.adapter.in.web.dto.SendEmailVerificationRequest;
@@ -24,7 +25,6 @@ import me.mmebot.auth.application.port.in.SignUpUseCase;
 import me.mmebot.auth.application.result.SignInResult;
 import me.mmebot.auth.application.result.TokenPairResult;
 import me.mmebot.auth.service.EmailVerificationResult;
-import me.mmebot.auth.service.EmailVerificationService;
 import me.mmebot.common.config.JwtProperties;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -38,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("${api.base-path}/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
     private static final String ACCESS_TOKEN_COOKIE = "access_token";
@@ -46,22 +47,8 @@ public class AuthController {
     private final SignUpUseCase signUpUseCase;
     private final LogoutUseCase logoutUseCase;
     private final ReissueTokenUseCase reissueTokenUseCase;
-    private final EmailVerificationService emailVerificationService;
+//    private final EmailVerificationService emailVerificationService;
     private final JwtProperties jwtProperties;
-
-    public AuthController(SignInUseCase signInUseCase,
-                          SignUpUseCase signUpUseCase,
-                          LogoutUseCase logoutUseCase,
-                          ReissueTokenUseCase reissueTokenUseCase,
-                          EmailVerificationService emailVerificationService,
-                          JwtProperties jwtProperties) {
-        this.signInUseCase = signInUseCase;
-        this.signUpUseCase = signUpUseCase;
-        this.logoutUseCase = logoutUseCase;
-        this.reissueTokenUseCase = reissueTokenUseCase;
-        this.emailVerificationService = emailVerificationService;
-        this.jwtProperties = jwtProperties;
-    }
 
     @PostMapping("/login")
     public SignInResponse signIn(@Valid @RequestBody SignInRequest request,
@@ -109,17 +96,17 @@ public class AuthController {
         return new TokenReissueResponse(tokens.accessToken(), tokens.refreshToken());
     }
 
-    @PostMapping("/email-verification/send")
-    public SendEmailVerificationResponse sendEmailVerification(@Valid @RequestBody SendEmailVerificationRequest request) {
-        EmailVerificationResult result = emailVerificationService.send(request.email());
-        return new SendEmailVerificationResponse(result.emailVerificationId(), result.code());
-    }
-
-    @PostMapping("/email-verification/check")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void checkEmailVerification(@Valid @RequestBody CheckEmailVerificationRequest request) {
-        emailVerificationService.check(request.emailVerificationId(), request.code());
-    }
+//    @PostMapping("/email-verification/send")
+//    public SendEmailVerificationResponse sendEmailVerification(@Valid @RequestBody SendEmailVerificationRequest request) {
+//        EmailVerificationResult result = emailVerificationService.send(request.email());
+//        return new SendEmailVerificationResponse(result.emailVerificationId(), result.code());
+//    }
+//
+//    @PostMapping("/email-verification/check")
+//    @ResponseStatus(HttpStatus.NO_CONTENT)
+//    public void checkEmailVerification(@Valid @RequestBody CheckEmailVerificationRequest request) {
+//        emailVerificationService.check(request.emailVerificationId(), request.code());
+//    }
 
     private void writeAccessTokenCookie(HttpServletResponse response, String accessToken) {
         ResponseCookie cookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, accessToken)

@@ -61,7 +61,7 @@ public class AuthException extends ApiException {
         return new AuthException(HttpStatus.BAD_REQUEST, "Email must not be null", "auth.email_required");
     }
 
-    public static AuthException authenticationRequired() {
-        return new AuthException(HttpStatus.UNAUTHORIZED, "Authentication is required", "auth.authentication_required");
-    }
+//    public static AuthException authenticationRequired() {
+//        return new AuthException(HttpStatus.UNAUTHORIZED, "Authentication is required", "auth.authentication_required");
+//    }
 }
