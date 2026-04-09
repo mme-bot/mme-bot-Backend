@@ -1,7 +1,7 @@
 package me.mmebot.auth.application.port.out;
 
-import me.mmebot.auth.domain.AuthTokenEntity;
+import me.mmebot.auth.domain.AuthToken;
 
 public interface SaveRefreshTokenPort {
-    AuthTokenEntity save(AuthTokenEntity authToken);
+    AuthToken save(AuthToken authToken);
 }

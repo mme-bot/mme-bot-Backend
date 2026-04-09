@@ -12,11 +12,11 @@ import me.mmebot.auth.application.port.out.JwtParsePort;
 import me.mmebot.auth.application.port.out.SaveRefreshTokenPort;
 import me.mmebot.auth.application.port.out.TokenCipherPort;
 import me.mmebot.auth.application.result.TokenPairResult;
-import me.mmebot.auth.domain.AuthTokenEntity;
+import me.mmebot.auth.domain.AuthToken;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.domain.token.EncryptedToken;
 import me.mmebot.auth.jwt.JwtPayload;
-import me.mmebot.user.domain.UserEntity;
+import me.mmebot.user.domain.User;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -31,7 +31,7 @@ public class AuthTokenIssueSupport {
     private final EncryptionContextPort encryptionContextPort;
     private final AccessTokenCachePort accessTokenCachePort;
 
-    public TokenPairResult issue(UserEntity user, Collection<RoleName> roleNames, ClientMetadata clientMetadata) {
+    public TokenPairResult issue(User user, Collection<RoleName> roleNames, ClientMetadata clientMetadata) {
         Collection<RoleName> effectiveRoles = roleNames == null || roleNames.isEmpty()
                 ? List.of(RoleName.ROLE_USER)
                 : roleNames;
@@ -41,7 +41,7 @@ public class AuthTokenIssueSupport {
         String plainAccessToken = jwtIssuePort.createAccessToken(userId, effectiveRoles);
         String plainRefreshToken = jwtIssuePort.createRefreshToken(userId, effectiveRoles);
 
-        AuthTokenEntity authToken = buildAndSaveRefreshToken(user, plainRefreshToken, clientMetadata);
+        AuthToken authToken = buildAndSaveRefreshToken(user, plainRefreshToken, clientMetadata);
 
         encryptAndCacheAccessToken(userId, plainAccessToken);
 
@@ -49,12 +49,12 @@ public class AuthTokenIssueSupport {
         return new TokenPairResult(plainAccessToken, authToken.getToken());
     }
 
-    private AuthTokenEntity buildAndSaveRefreshToken(UserEntity user, String plainRefreshToken, ClientMetadata metadata) {
+    private AuthToken buildAndSaveRefreshToken(User user, String plainRefreshToken, ClientMetadata metadata) {
         JwtPayload payload = jwtParsePort.parse(plainRefreshToken);
         EncryptedToken encryptedRefresh = tokenCipherPort.encrypt(plainRefreshToken, user.getId());
 
-        AuthTokenEntity authTokenEntity = new AuthTokenEntity(
-                user,
+        AuthToken authToken = AuthToken.issue(
+                user.getId(),
                 payload.tokenType(),
                 encryptedRefresh.payload(),
                 encryptedRefresh.context(),
@@ -63,7 +63,7 @@ public class AuthTokenIssueSupport {
                 metadata != null ? metadata.userAgent() : null
         );
 
-        AuthTokenEntity saved = saveRefreshTokenPort.save(authTokenEntity);
+        AuthToken saved = saveRefreshTokenPort.save(authToken);
         log.debug("Stored refresh token for user {}", user.getId());
         return saved;
     }

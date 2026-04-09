@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.application.port.out.LoadUserPort;
 import me.mmebot.auth.application.port.out.LoadUserRolesPort;
 import me.mmebot.auth.domain.RoleName;
-import me.mmebot.user.domain.UserEntity;
+import me.mmebot.user.domain.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -23,10 +23,10 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) {
         String normalizedEmail = normalize(username);
-        UserEntity user = loadUserPort.loadByNormalizedEmail(normalizedEmail)
+        User user = loadUserPort.loadByNormalizedEmail(normalizedEmail)
                 .orElseThrow(() -> {
-                    log.warn("UserEntity lookup failed: {} not found", normalizedEmail);
-                    return new UsernameNotFoundException("UserEntity not found");
+                    log.warn("User lookup failed: {} not found", normalizedEmail);
+                    return new UsernameNotFoundException("User not found");
                 });
 
         List<RoleName> roles = loadUserRolesPort.loadRoleNames(user.getId());

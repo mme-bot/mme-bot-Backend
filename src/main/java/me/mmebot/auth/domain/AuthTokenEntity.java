@@ -70,31 +70,34 @@ public class AuthTokenEntity {
     @JoinColumn(name = "encryption_context_id", nullable = false)
     private EncryptionContextEntity encryptionContext;
 
-//    public AuthTokenEntity(UserEntity user,
-//                     AuthTokenType type,
-//                     String token,
-//                     OffsetDateTime expiredAt,
-//                     String ipAddress,
-//                     String userAgent,
-//                     TokenCipher tokenCipher,
-//                     TokenHashService tokenHashService) {
-//        this(user, type, token, expiredAt, ipAddress, userAgent, tokenCipher, tokenHashService, null);
-//    }
+    public static AuthTokenEntity from(AuthToken authToken, UserEntity user) {
+        return AuthTokenEntity.builder()
+                .id(authToken.getId())
+                .user(user)
+                .type(authToken.getType())
+                .token(authToken.getToken())
+                .issuedAt(authToken.getIssuedAt())
+                .expiredAt(authToken.getExpiredAt())
+                .revokedAt(authToken.getRevokedAt())
+                .userAgent(authToken.getUserAgent())
+                .ipAddress(authToken.getIpAddress())
+                .encryptionContext(authToken.getEncryptionContext())
+                .build();
+    }
 
-    public AuthTokenEntity(UserEntity user,
-                     AuthTokenType type,
-                     String token,
-                     EncryptionContextEntity context,
-                     OffsetDateTime expiredAt,
-                     String ipAddress,
-                     String userAgent) {
-        this.user = user;
-        this.type = type;
-        this.token = token;
-        this.expiredAt = expiredAt;
-        this.ipAddress = ipAddress;
-        this.encryptionContext = context;
-        this.userAgent = userAgent;
+    public AuthToken toModel() {
+        return AuthToken.builder()
+                .id(this.id)
+                .userId(this.user.getId())
+                .type(this.type)
+                .token(this.token)
+                .issuedAt(this.issuedAt)
+                .expiredAt(this.expiredAt)
+                .revokedAt(this.revokedAt)
+                .userAgent(this.userAgent)
+                .ipAddress(this.ipAddress)
+                .encryptionContext(this.encryptionContext)
+                .build();
     }
 
     public boolean isRevoked() {

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import me.mmebot.auth.domain.AuthTokenEntity;
+import me.mmebot.auth.domain.AuthToken;
 import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.RoleEntity;
 import me.mmebot.auth.domain.RoleName;
@@ -28,6 +29,7 @@ import me.mmebot.auth.service.AuthServiceRecords.TokenPair;
 import me.mmebot.common.logging.Masked;
 import me.mmebot.core.domain.EncryptionContextEntity;
 import me.mmebot.core.service.EncryptionContextFactory;
+import me.mmebot.user.domain.User;
 import me.mmebot.user.domain.UserEntity;
 import me.mmebot.user.repository.UserRepository;
 import me.mmebot.user.service.UserEmailProtector;
@@ -63,7 +65,7 @@ public class AuthService {
             throw AuthException.invalidCredentials();
         }
 
-        UserEntity user = userDetails.getUser();
+        User user = userDetails.getUser();
         if (user.isDeleted()) {
             throw AuthException.deletedAccount();
         }
@@ -73,8 +75,10 @@ public class AuthService {
 
         List<RoleName> roles = userDetails.getRoleNames();
 
-        TokenPair tokens = issueTokens(user, roles, metadata);
-        Long botId = user.getBot() != null ? user.getBot().getId() : null;
+        UserEntity userEntity = userRepository.findById(user.getId())
+                .orElseThrow(AuthException::userNotFound);
+        TokenPair tokens = issueTokens(userEntity, roles, metadata);
+        Long botId = user.getBotId();
         return new SignInResult(user.getId(), botId, user.getNickname(), tokens.accessToken(), tokens.refreshToken());
     }
 
@@ -210,8 +214,8 @@ public class AuthService {
                 user.getId(),
                 null
         );
-        AuthTokenEntity authToken = new AuthTokenEntity(
-                user,
+        AuthToken authToken = AuthToken.issue(
+                user.getId(),
                 payload.tokenType(),
                 encryptedToken.payload(),
                 encryptedToken.context(),
@@ -219,9 +223,7 @@ public class AuthService {
                 metadata != null ? metadata.ipAddress() : null,
                 metadata != null ? metadata.userAgent() : null
         );
-        authTokenRepository.save(authToken);
-
-        return authToken;
+        return authTokenRepository.save(AuthTokenEntity.from(authToken, user));
     }
 
     private JwtPayload parseToken(String token) {

@@ -17,12 +17,12 @@ import me.mmebot.auth.application.port.out.SaveRefreshTokenPort;
 import me.mmebot.auth.application.port.out.TokenCipherPort;
 import me.mmebot.auth.application.port.out.TokenHashPort;
 import me.mmebot.auth.application.result.TokenPairResult;
-import me.mmebot.auth.domain.AuthTokenEntity;
+import me.mmebot.auth.domain.AuthToken;
 import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.exception.AuthException;
 import me.mmebot.auth.jwt.JwtPayload;
-import me.mmebot.user.domain.UserEntity;
+import me.mmebot.user.domain.User;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -42,7 +42,7 @@ public class ReissueTokenService implements ReissueTokenUseCase {
 
     @Override
     public TokenPairResult reissue(ReissueTokenCommand command) {
-        UserEntity user = loadUserPort.loadById(command.userId())
+        User user = loadUserPort.loadById(command.userId())
                 .orElseThrow(() -> {
                     log.warn("Token reissue failed: user {} not found", command.userId());
                     return AuthException.userNotFound();
@@ -53,7 +53,7 @@ public class ReissueTokenService implements ReissueTokenUseCase {
             throw AuthException.deletedAccount();
         }
 
-        AuthTokenEntity authToken = loadRefreshTokenPort
+        AuthToken authToken = loadRefreshTokenPort
                 .loadByUserIdAndToken(command.userId(), command.refreshToken())
                 .orElseThrow(() -> {
                     log.warn("Token reissue failed: token not found for user {}", command.userId());

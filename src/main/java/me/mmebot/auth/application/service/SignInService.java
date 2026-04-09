@@ -13,7 +13,7 @@ import me.mmebot.auth.application.result.SignInResult;
 import me.mmebot.auth.application.result.TokenPairResult;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.exception.AuthException;
-import me.mmebot.user.domain.UserEntity;
+import me.mmebot.user.domain.User;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -29,12 +29,9 @@ public class SignInService implements SignInUseCase {
 
     @Override
     public SignInResult signIn(SignInCommand command) {
-        if (command.email() == null) {
-            throw AuthException.emailRequired();
-        }
         String normalizedEmail = command.email().trim().toLowerCase();
 
-        UserEntity user = loadUserPort.loadByNormalizedEmail(normalizedEmail)
+        User user = loadUserPort.loadByNormalizedEmail(normalizedEmail)
                 .orElseThrow(() -> {
                     log.warn("Sign-in failed: no user found for {}", normalizedEmail);
                     return AuthException.invalidCredentials();
@@ -54,7 +51,7 @@ public class SignInService implements SignInUseCase {
 
         TokenPairResult tokenPair = authTokenIssueSupport.issue(user, roles, command.clientMetadata());
 
-        Long botId = user.getBot() != null ? user.getBot().getId() : null;
+        Long botId = user.getBotId();
         log.info("Sign-in succeeded for user {}", user.getId());
         return new SignInResult(user.getId(), botId, user.getNickname(),
                 tokenPair.accessToken(), tokenPair.refreshToken());

@@ -81,6 +81,21 @@ public class UserEntity {
         return deletedAt != null;
     }
 
+    public User toModel() {
+        return User.builder()
+                .id(this.id)
+                .botId(this.bot != null ? this.bot.getId() : null)
+                .emailHash(this.emailHash)
+                .emailCipher(this.emailCipher)
+                .password(this.password)
+                .nickname(this.nickname)
+                .sns(this.sns)
+                .createdAt(this.createdAt)
+                .updatedAt(this.updatedAt)
+                .deletedAt(this.deletedAt)
+                .build();
+    }
+
     public UserEntity(String nickname, BotEntity bot) {
         this.bot = bot;
         this.createdAt = OffsetDateTime.now();

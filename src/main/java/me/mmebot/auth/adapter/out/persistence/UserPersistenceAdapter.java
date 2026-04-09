@@ -4,6 +4,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import me.mmebot.auth.application.port.out.LoadUserPort;
 import me.mmebot.auth.application.port.out.SaveUserPort;
+import me.mmebot.user.domain.User;
 import me.mmebot.user.domain.UserEntity;
 import me.mmebot.user.repository.UserRepository;
 import me.mmebot.user.service.UserEmailProtector;
@@ -17,14 +18,16 @@ public class UserPersistenceAdapter implements LoadUserPort, SaveUserPort {
     private final UserEmailProtector userEmailProtector;
 
     @Override
-    public Optional<UserEntity> loadById(Long userId) {
-        return userRepository.findById(userId);
+    public Optional<User> loadById(Long userId) {
+        return userRepository.findById(userId)
+                .map(UserEntity::toModel);
     }
 
     @Override
-    public Optional<UserEntity> loadByNormalizedEmail(String normalizedEmail) {
+    public Optional<User> loadByNormalizedEmail(String normalizedEmail) {
         byte[] aadHash = userEmailProtector.aadHash(normalizedEmail);
-        return userRepository.findByEmailEncryptionContextAadHash(aadHash);
+        return userRepository.findByEmailEncryptionContextAadHash(aadHash)
+                .map(UserEntity::toModel);
     }
 
     @Override
