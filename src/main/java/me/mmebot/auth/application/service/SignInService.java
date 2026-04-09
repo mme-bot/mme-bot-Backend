@@ -4,13 +4,13 @@ import jakarta.transaction.Transactional;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import me.mmebot.auth.application.command.SignInCommand;
 import me.mmebot.auth.application.port.in.SignInUseCase;
+import me.mmebot.auth.application.port.in.command.SignInCommand;
+import me.mmebot.auth.application.port.in.result.SignInResult;
+import me.mmebot.auth.application.port.in.result.TokenPairResult;
 import me.mmebot.auth.application.port.out.LoadUserPort;
 import me.mmebot.auth.application.port.out.LoadUserRolesPort;
 import me.mmebot.auth.application.port.out.PasswordEncodePort;
-import me.mmebot.auth.application.result.SignInResult;
-import me.mmebot.auth.application.result.TokenPairResult;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.exception.AuthException;
 import me.mmebot.user.domain.User;
@@ -52,7 +52,6 @@ public class SignInService implements SignInUseCase {
         TokenPairResult tokenPair = authTokenIssueSupport.issue(user, roles, command.clientMetadata());
 
         Long botId = user.getBotId();
-        log.info("Sign-in succeeded for user {}", user.getId());
         return new SignInResult(user.getId(), botId, user.getNickname(),
                 tokenPair.accessToken(), tokenPair.refreshToken());
     }
