@@ -103,7 +103,7 @@ public class UserEntity {
         this.nickname = nickname;
     }
 
-    public void assignBot(Bot bot) {
+    public void assignBot(BotEntity bot) {
         this.bot = bot;
     }
 }
