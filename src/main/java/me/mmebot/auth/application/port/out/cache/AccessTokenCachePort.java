@@ -1,4 +1,4 @@
-package me.mmebot.auth.application.port.out;
+package me.mmebot.auth.application.port.out.cache;
 
 import java.time.Duration;
 

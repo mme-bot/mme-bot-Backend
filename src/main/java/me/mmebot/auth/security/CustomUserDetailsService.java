@@ -3,8 +3,8 @@ package me.mmebot.auth.security;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import me.mmebot.auth.application.port.out.LoadUserPort;
-import me.mmebot.auth.application.port.out.LoadUserRolesPort;
+import me.mmebot.auth.application.port.out.persistence.LoadUserRolesPort;
+import me.mmebot.auth.application.port.out.persistence.UserPersistencePort;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.user.domain.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -17,13 +17,13 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
 
-    private final LoadUserPort loadUserPort;
+    private final UserPersistencePort userPersistencePort;
     private final LoadUserRolesPort loadUserRolesPort;
 
     @Override
     public UserDetails loadUserByUsername(String username) {
         String normalizedEmail = normalize(username);
-        User user = loadUserPort.loadByNormalizedEmail(normalizedEmail)
+        User user = userPersistencePort.loadByNormalizedEmail(normalizedEmail)
                 .orElseThrow(() -> {
                     log.warn("User lookup failed: {} not found", normalizedEmail);
                     return new UsernameNotFoundException("User not found");

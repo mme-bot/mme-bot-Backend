@@ -4,8 +4,7 @@ import jakarta.persistence.EntityManager;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import me.mmebot.auth.domain.AuthToken;
-import me.mmebot.auth.application.port.out.LoadRefreshTokenPort;
-import me.mmebot.auth.application.port.out.SaveRefreshTokenPort;
+import me.mmebot.auth.application.port.out.persistence.RefreshTokenPort;
 import me.mmebot.auth.domain.AuthTokenEntity;
 import me.mmebot.auth.repository.AuthTokenRepository;
 import me.mmebot.user.domain.UserEntity;
@@ -13,7 +12,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class AuthTokenPersistenceAdapter implements LoadRefreshTokenPort, SaveRefreshTokenPort {
+public class AuthTokenPersistenceAdapter implements RefreshTokenPort {
 
     private final AuthTokenRepository authTokenRepository;
     private final EntityManager entityManager;

@@ -1,7 +1,7 @@
 package me.mmebot.auth.adapter.out.crypto;
 
 import lombok.RequiredArgsConstructor;
-import me.mmebot.auth.application.port.out.EmailProtectPort;
+import me.mmebot.auth.application.port.out.crypto.EmailProtectPort;
 import me.mmebot.user.service.UserEmailProtector;
 import org.springframework.stereotype.Component;
 

@@ -4,14 +4,14 @@ import java.util.Collection;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import me.mmebot.auth.application.port.in.command.ClientMetadata;
-import me.mmebot.auth.application.port.in.result.TokenPairResult;
-import me.mmebot.auth.application.port.out.AccessTokenCachePort;
-import me.mmebot.auth.application.port.out.EncryptionContextPort;
-import me.mmebot.auth.application.port.out.JwtIssuePort;
-import me.mmebot.auth.application.port.out.JwtParsePort;
-import me.mmebot.auth.application.port.out.SaveRefreshTokenPort;
-import me.mmebot.auth.application.port.out.TokenCipherPort;
+import me.mmebot.auth.application.port.in.command.session.ClientMetadata;
+import me.mmebot.auth.application.port.in.result.session.TokenPairResult;
+import me.mmebot.auth.application.port.out.cache.AccessTokenCachePort;
+import me.mmebot.auth.application.port.out.crypto.TokenCipherPort;
+import me.mmebot.auth.application.port.out.jwt.JwtIssuePort;
+import me.mmebot.auth.application.port.out.jwt.JwtParsePort;
+import me.mmebot.auth.application.port.out.persistence.EncryptionContextPort;
+import me.mmebot.auth.application.port.out.persistence.RefreshTokenPort;
 import me.mmebot.auth.domain.AuthToken;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.domain.token.EncryptedToken;
@@ -27,7 +27,7 @@ public class AuthTokenIssueSupport {
     private final JwtIssuePort jwtIssuePort;
     private final JwtParsePort jwtParsePort;
     private final TokenCipherPort tokenCipherPort;
-    private final SaveRefreshTokenPort saveRefreshTokenPort;
+    private final RefreshTokenPort refreshTokenPort;
     private final EncryptionContextPort encryptionContextPort;
     private final AccessTokenCachePort accessTokenCachePort;
 
@@ -63,7 +63,7 @@ public class AuthTokenIssueSupport {
                 metadata != null ? metadata.userAgent() : null
         );
 
-        AuthToken saved = saveRefreshTokenPort.save(authToken);
+        AuthToken saved = refreshTokenPort.save(authToken);
         log.debug("Stored refresh token for user {}", user.getId());
         return saved;
     }

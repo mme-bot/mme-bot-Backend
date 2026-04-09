@@ -5,9 +5,8 @@ import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.application.port.in.LogoutUseCase;
-import me.mmebot.auth.application.port.in.command.LogoutCommand;
-import me.mmebot.auth.application.port.out.LoadRefreshTokenPort;
-import me.mmebot.auth.application.port.out.SaveRefreshTokenPort;
+import me.mmebot.auth.application.port.in.command.session.LogoutCommand;
+import me.mmebot.auth.application.port.out.persistence.RefreshTokenPort;
 import me.mmebot.auth.exception.AuthException;
 import org.springframework.stereotype.Service;
 
@@ -17,8 +16,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class LogoutService implements LogoutUseCase {
 
-    private final LoadRefreshTokenPort loadRefreshTokenPort;
-    private final SaveRefreshTokenPort saveRefreshTokenPort;
+    private final RefreshTokenPort refreshTokenPort;
 
     @Override
     public void logout(LogoutCommand command) {
@@ -29,11 +27,11 @@ public class LogoutService implements LogoutUseCase {
             throw AuthException.refreshTokenMissing();
         }
 
-        loadRefreshTokenPort.loadByUserIdAndToken(command.userId(), command.refreshToken())
+        refreshTokenPort.loadByUserIdAndToken(command.userId(), command.refreshToken())
                 .filter(token -> !token.isRevoked())
                 .ifPresent(token -> {
                     token.revoke(OffsetDateTime.now());
-                    saveRefreshTokenPort.save(token);
+                    refreshTokenPort.save(token);
                     log.debug("Refresh token revoked for user {}", command.userId());
                 });
     }

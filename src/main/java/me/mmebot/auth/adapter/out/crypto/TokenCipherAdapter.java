@@ -1,7 +1,7 @@
 package me.mmebot.auth.adapter.out.crypto;
 
 import lombok.RequiredArgsConstructor;
-import me.mmebot.auth.application.port.out.TokenCipherPort;
+import me.mmebot.auth.application.port.out.crypto.TokenCipherPort;
 import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.token.EncryptedToken;
 import me.mmebot.auth.service.TokenCiperService;

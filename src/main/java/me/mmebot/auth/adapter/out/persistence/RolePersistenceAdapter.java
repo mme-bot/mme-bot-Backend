@@ -2,8 +2,8 @@ package me.mmebot.auth.adapter.out.persistence;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import me.mmebot.auth.application.port.out.LoadUserRolesPort;
-import me.mmebot.auth.application.port.out.SaveRolePort;
+import me.mmebot.auth.application.port.out.persistence.LoadUserRolesPort;
+import me.mmebot.auth.application.port.out.persistence.SaveRolePort;
 import me.mmebot.auth.domain.RoleEntity;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.repository.RoleRepository;

@@ -5,12 +5,12 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.application.port.in.SignInUseCase;
-import me.mmebot.auth.application.port.in.command.SignInCommand;
-import me.mmebot.auth.application.port.in.result.SignInResult;
-import me.mmebot.auth.application.port.in.result.TokenPairResult;
-import me.mmebot.auth.application.port.out.LoadUserPort;
-import me.mmebot.auth.application.port.out.LoadUserRolesPort;
-import me.mmebot.auth.application.port.out.PasswordEncodePort;
+import me.mmebot.auth.application.port.in.command.session.SignInCommand;
+import me.mmebot.auth.application.port.in.result.session.SignInResult;
+import me.mmebot.auth.application.port.in.result.session.TokenPairResult;
+import me.mmebot.auth.application.port.out.crypto.PasswordEncodePort;
+import me.mmebot.auth.application.port.out.persistence.LoadUserRolesPort;
+import me.mmebot.auth.application.port.out.persistence.UserPersistencePort;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.exception.AuthException;
 import me.mmebot.user.domain.User;
@@ -22,7 +22,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class SignInService implements SignInUseCase {
 
-    private final LoadUserPort loadUserPort;
+    private final UserPersistencePort userPersistencePort;
     private final PasswordEncodePort passwordEncodePort;
     private final LoadUserRolesPort loadUserRolesPort;
     private final AuthTokenIssueSupport authTokenIssueSupport;
@@ -31,7 +31,7 @@ public class SignInService implements SignInUseCase {
     public SignInResult signIn(SignInCommand command) {
         String normalizedEmail = command.email().trim().toLowerCase();
 
-        User user = loadUserPort.loadByNormalizedEmail(normalizedEmail)
+        User user = userPersistencePort.loadByNormalizedEmail(normalizedEmail)
                 .orElseThrow(() -> {
                     log.warn("Sign-in failed: no user found for {}", normalizedEmail);
                     return AuthException.invalidCredentials();

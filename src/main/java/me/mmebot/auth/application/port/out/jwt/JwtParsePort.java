@@ -1,4 +1,4 @@
-package me.mmebot.auth.application.port.out;
+package me.mmebot.auth.application.port.out.jwt;
 
 import me.mmebot.auth.jwt.JwtPayload;
 

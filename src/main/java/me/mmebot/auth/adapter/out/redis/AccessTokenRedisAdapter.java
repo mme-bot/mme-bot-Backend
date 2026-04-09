@@ -2,7 +2,7 @@ package me.mmebot.auth.adapter.out.redis;
 
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
-import me.mmebot.auth.application.port.out.AccessTokenCachePort;
+import me.mmebot.auth.application.port.out.cache.AccessTokenCachePort;
 import me.mmebot.auth.service.RedisService;
 import org.springframework.stereotype.Component;
 

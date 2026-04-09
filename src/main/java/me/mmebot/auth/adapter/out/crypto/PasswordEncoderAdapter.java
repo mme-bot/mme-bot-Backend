@@ -1,7 +1,7 @@
 package me.mmebot.auth.adapter.out.crypto;
 
 import lombok.RequiredArgsConstructor;
-import me.mmebot.auth.application.port.out.PasswordEncodePort;
+import me.mmebot.auth.application.port.out.crypto.PasswordEncodePort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 

@@ -1,7 +1,7 @@
 package me.mmebot.auth.adapter.out.crypto;
 
 import lombok.RequiredArgsConstructor;
-import me.mmebot.auth.application.port.out.TokenHashPort;
+import me.mmebot.auth.application.port.out.crypto.TokenHashPort;
 import me.mmebot.auth.service.TokenHashService;
 import org.springframework.stereotype.Component;
 

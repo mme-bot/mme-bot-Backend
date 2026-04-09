@@ -4,13 +4,12 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.application.port.in.SignUpUseCase;
-import me.mmebot.auth.application.port.in.command.SignUpCommand;
-import me.mmebot.auth.application.port.out.EmailProtectPort;
-import me.mmebot.auth.application.port.out.EncryptionContextPort;
-import me.mmebot.auth.application.port.out.LoadUserPort;
-import me.mmebot.auth.application.port.out.PasswordEncodePort;
-import me.mmebot.auth.application.port.out.SaveRolePort;
-import me.mmebot.auth.application.port.out.SaveUserPort;
+import me.mmebot.auth.application.port.in.command.registration.SignUpCommand;
+import me.mmebot.auth.application.port.out.crypto.EmailProtectPort;
+import me.mmebot.auth.application.port.out.crypto.PasswordEncodePort;
+import me.mmebot.auth.application.port.out.persistence.EncryptionContextPort;
+import me.mmebot.auth.application.port.out.persistence.SaveRolePort;
+import me.mmebot.auth.application.port.out.persistence.UserPersistencePort;
 import me.mmebot.auth.domain.RoleEntity;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.exception.AuthException;
@@ -24,8 +23,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class SignUpService implements SignUpUseCase {
 
-    private final LoadUserPort loadUserPort;
-    private final SaveUserPort saveUserPort;
+    private final UserPersistencePort userPersistencePort;
     private final EmailProtectPort emailProtectPort;
     private final EncryptionContextPort encryptionContextPort;
     private final PasswordEncodePort passwordEncodePort;
@@ -38,7 +36,7 @@ public class SignUpService implements SignUpUseCase {
         }
         String normalizedEmail = command.email().trim().toLowerCase();
 
-        loadUserPort.loadByNormalizedEmail(normalizedEmail).ifPresent(_ -> {
+        userPersistencePort.loadByNormalizedEmail(normalizedEmail).ifPresent(_ -> {
             log.warn("Sign-up failed: {} already in use", normalizedEmail);
             throw AuthException.duplicateEmail();
         });
@@ -56,7 +54,7 @@ public class SignUpService implements SignUpUseCase {
                 .emailEncryptionContext(encryptionContext)
                 .build();
 
-        UserEntity saved = saveUserPort.save(user);
+        UserEntity saved = userPersistencePort.save(user);
 
         if (!saveRolePort.exists(saved.getId(), RoleName.ROLE_USER)) {
             saveRolePort.save(RoleEntity.builder()

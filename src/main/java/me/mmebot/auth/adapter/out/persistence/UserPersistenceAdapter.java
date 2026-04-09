@@ -2,8 +2,7 @@ package me.mmebot.auth.adapter.out.persistence;
 
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import me.mmebot.auth.application.port.out.LoadUserPort;
-import me.mmebot.auth.application.port.out.SaveUserPort;
+import me.mmebot.auth.application.port.out.persistence.UserPersistencePort;
 import me.mmebot.user.domain.User;
 import me.mmebot.user.domain.UserEntity;
 import me.mmebot.user.repository.UserRepository;
@@ -12,7 +11,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class UserPersistenceAdapter implements LoadUserPort, SaveUserPort {
+public class UserPersistenceAdapter implements UserPersistencePort {
 
     private final UserRepository userRepository;
     private final UserEmailProtector userEmailProtector;

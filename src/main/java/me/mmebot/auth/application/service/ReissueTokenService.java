@@ -8,15 +8,14 @@ import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.application.port.in.ReissueTokenUseCase;
-import me.mmebot.auth.application.port.in.command.ReissueTokenCommand;
-import me.mmebot.auth.application.port.in.result.TokenPairResult;
-import me.mmebot.auth.application.port.out.JwtParsePort;
-import me.mmebot.auth.application.port.out.LoadRefreshTokenPort;
-import me.mmebot.auth.application.port.out.LoadUserPort;
-import me.mmebot.auth.application.port.out.LoadUserRolesPort;
-import me.mmebot.auth.application.port.out.SaveRefreshTokenPort;
-import me.mmebot.auth.application.port.out.TokenCipherPort;
-import me.mmebot.auth.application.port.out.TokenHashPort;
+import me.mmebot.auth.application.port.in.command.session.ReissueTokenCommand;
+import me.mmebot.auth.application.port.in.result.session.TokenPairResult;
+import me.mmebot.auth.application.port.out.crypto.TokenCipherPort;
+import me.mmebot.auth.application.port.out.crypto.TokenHashPort;
+import me.mmebot.auth.application.port.out.jwt.JwtParsePort;
+import me.mmebot.auth.application.port.out.persistence.LoadUserRolesPort;
+import me.mmebot.auth.application.port.out.persistence.RefreshTokenPort;
+import me.mmebot.auth.application.port.out.persistence.UserPersistencePort;
 import me.mmebot.auth.domain.AuthToken;
 import me.mmebot.auth.domain.AuthTokenType;
 import me.mmebot.auth.domain.RoleName;
@@ -31,9 +30,8 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class ReissueTokenService implements ReissueTokenUseCase {
 
-    private final LoadUserPort loadUserPort;
-    private final LoadRefreshTokenPort loadRefreshTokenPort;
-    private final SaveRefreshTokenPort saveRefreshTokenPort;
+    private final UserPersistencePort userPersistencePort;
+    private final RefreshTokenPort refreshTokenPort;
     private final LoadUserRolesPort loadUserRolesPort;
     private final TokenHashPort tokenHashPort;
     private final TokenCipherPort tokenCipherPort;
@@ -42,7 +40,7 @@ public class ReissueTokenService implements ReissueTokenUseCase {
 
     @Override
     public TokenPairResult reissue(ReissueTokenCommand command) {
-        User user = loadUserPort.loadById(command.userId())
+        User user = userPersistencePort.loadById(command.userId())
                 .orElseThrow(() -> {
                     log.warn("Token reissue failed: user {} not found", command.userId());
                     return AuthException.userNotFound();
@@ -53,7 +51,7 @@ public class ReissueTokenService implements ReissueTokenUseCase {
             throw AuthException.deletedAccount();
         }
 
-        AuthToken authToken = loadRefreshTokenPort
+        AuthToken authToken = refreshTokenPort
                 .loadByUserIdAndToken(command.userId(), command.refreshToken())
                 .orElseThrow(() -> {
                     log.warn("Token reissue failed: token not found for user {}", command.userId());
@@ -75,7 +73,7 @@ public class ReissueTokenService implements ReissueTokenUseCase {
         if (!Arrays.equals(userHash, authToken.getEncryptionContext().getAadHash())) {
             log.warn("Token reissue failed: aad hash mismatch for user {}", command.userId());
             authToken.revoke(now);
-            saveRefreshTokenPort.save(authToken);
+            refreshTokenPort.save(authToken);
             throw AuthException.refreshTokenInvalid();
         }
 
@@ -92,7 +90,7 @@ public class ReissueTokenService implements ReissueTokenUseCase {
             log.warn("Token reissue failed: payload user mismatch (expected {}, got {})",
                     command.userId(), payload.userId());
             authToken.revoke(now);
-            saveRefreshTokenPort.save(authToken);
+            refreshTokenPort.save(authToken);
             throw AuthException.refreshTokenUserMismatch();
         }
 

@@ -1,7 +1,7 @@
 package me.mmebot.auth.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
-import me.mmebot.auth.application.port.out.EncryptionContextPort;
+import me.mmebot.auth.application.port.out.persistence.EncryptionContextPort;
 import me.mmebot.auth.service.EncryptionContextService;
 import me.mmebot.core.domain.EncryptionContextEntity;
 import me.mmebot.core.service.EncryptionContextFactory;
