@@ -2,9 +2,7 @@ package me.mmebot.auth.application.service;
 
 import jakarta.transaction.Transactional;
 import java.time.OffsetDateTime;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.application.port.in.LogoutUseCase;
@@ -23,11 +21,16 @@ import me.mmebot.auth.application.port.out.persistence.LoadUserRolesPort;
 import me.mmebot.auth.application.port.out.persistence.RefreshTokenPort;
 import me.mmebot.auth.application.port.out.persistence.UserPersistencePort;
 import me.mmebot.auth.domain.AuthToken;
+import me.mmebot.auth.domain.AuthTokenPayloadTypeMismatchException;
 import me.mmebot.auth.domain.AuthTokenType;
+import me.mmebot.auth.domain.AuthTokenUserMismatchException;
+import me.mmebot.auth.domain.InvalidAuthTokenTypeException;
 import me.mmebot.auth.domain.RoleName;
+import me.mmebot.auth.domain.UnusableAuthTokenException;
 import me.mmebot.auth.exception.AuthException;
 import me.mmebot.auth.jwt.JwtPayload;
 import me.mmebot.user.domain.User;
+import me.mmebot.user.domain.UserDeletedException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -55,7 +58,7 @@ public class AuthSessionService implements SignInUseCase, ReissueTokenUseCase, L
                     return AuthException.invalidCredentials();
                 });
 
-        validateActiveUser(user, "Sign-in failed");
+        ensureActiveUser(user, "Sign-in failed");
 
         if (!passwordEncodePort.matches(command.password(), user.getPassword())) {
             log.warn("Sign-in failed: invalid credentials for {}", normalizedEmail);
@@ -82,7 +85,7 @@ public class AuthSessionService implements SignInUseCase, ReissueTokenUseCase, L
                     return AuthException.userNotFound();
                 });
 
-        validateActiveUser(user, "Token reissue failed");
+        ensureActiveUser(user, "Token reissue failed");
 
         AuthToken authToken = refreshTokenPort
                 .loadByUserIdAndToken(command.userId(), command.refreshToken())
@@ -94,7 +97,6 @@ public class AuthSessionService implements SignInUseCase, ReissueTokenUseCase, L
         validateRefreshToken(command, authToken);
 
         List<RoleName> roles = loadUserRolesPort.loadRoleNames(command.userId());
-        log.info("Token reissue succeeded for user {}", command.userId());
         return authTokenIssueSupport.issue(user, roles, command.clientMetadata());
     }
 
@@ -102,9 +104,6 @@ public class AuthSessionService implements SignInUseCase, ReissueTokenUseCase, L
     public void logout(LogoutCommand command) {
         if (command.userId() == null) {
             throw AuthException.authenticationRequired();
-        }
-        if (command.refreshToken() == null || command.refreshToken().isBlank()) {
-            throw AuthException.refreshTokenMissing();
         }
 
         refreshTokenPort.loadByUserIdAndToken(command.userId(), command.refreshToken())
@@ -116,27 +115,33 @@ public class AuthSessionService implements SignInUseCase, ReissueTokenUseCase, L
                 });
     }
 
-    private void validateActiveUser(User user, String logPrefix) {
-        if (user.isDeleted()) {
+    private void ensureActiveUser(User user, String logPrefix) {
+        try {
+            user.ensureActive();
+        } catch (UserDeletedException ex) {
             log.warn("{}: user {} is marked as deleted", logPrefix, user.getId());
             throw AuthException.deletedAccount();
         }
     }
 
     private void validateRefreshToken(ReissueTokenCommand command, AuthToken authToken) {
-        if (!authToken.getType().equals(AuthTokenType.REFRESH)) {
+        try {
+            authToken.ensureRefreshToken();
+        } catch (InvalidAuthTokenTypeException ex) {
             log.warn("Token reissue failed: token {} is not a refresh token", authToken.getId());
             throw AuthException.refreshTokenMissing();
         }
 
         OffsetDateTime now = OffsetDateTime.now();
-        if (authToken.isRevoked() || authToken.isExpired(now)) {
+        try {
+            authToken.ensureUsable(now);
+        } catch (UnusableAuthTokenException ex) {
             log.warn("Token reissue failed: refresh token invalid for user {}", command.userId());
             throw AuthException.refreshTokenInvalid();
         }
 
         byte[] userHash = tokenHashPort.hash(command.userId().toString());
-        if (!Arrays.equals(userHash, authToken.getEncryptionContext().getAadHash())) {
+        if (!authToken.matchesAadHash(userHash)) {
             log.warn("Token reissue failed: aad hash mismatch for user {}", command.userId());
             revokeRefreshToken(authToken, now);
             throw AuthException.refreshTokenInvalid();
@@ -151,14 +156,14 @@ public class AuthSessionService implements SignInUseCase, ReissueTokenUseCase, L
 
         JwtPayload payload = jwtParsePort.parse(decryptedToken);
 
-        if (!Objects.equals(payload.userId(), command.userId())) {
+        try {
+            authToken.ensureMatchesPayload(payload, command.userId());
+        } catch (AuthTokenUserMismatchException ex) {
             log.warn("Token reissue failed: payload user mismatch (expected {}, got {})",
                     command.userId(), payload.userId());
             revokeRefreshToken(authToken, now);
             throw AuthException.refreshTokenUserMismatch();
-        }
-
-        if (payload.tokenType() != AuthTokenType.REFRESH) {
+        } catch (AuthTokenPayloadTypeMismatchException ex) {
             log.warn("Token reissue failed: invalid token type {} for user {}",
                     payload.tokenType(), command.userId());
             throw AuthException.invalidTokenType();

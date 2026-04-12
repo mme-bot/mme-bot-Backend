@@ -22,4 +22,10 @@ public class User {
     public boolean isDeleted() {
         return deletedAt != null;
     }
+
+    public void ensureActive() {
+        if (isDeleted()) {
+            throw new UserDeletedException(id);
+        }
+    }
 }
