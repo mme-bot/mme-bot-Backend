@@ -58,7 +58,8 @@ CREATE TABLE mmebot.bot_image (
 CREATE TABLE mmebot.users (
     user_id                 BIGSERIAL PRIMARY KEY,
     bot_id                  BIGINT,
-    email                   VARCHAR(320) NOT NULL UNIQUE,
+    email_hash              VARCHAR(320) NOT NULL UNIQUE,
+    email_cipher            VARCHAR(320),
     password                VARCHAR(255) NOT NULL,
     nickname                VARCHAR(40)  NOT NULL,
     is_sns                  BOOLEAN NOT NULL DEFAULT FALSE,
@@ -70,7 +71,7 @@ CREATE TABLE mmebot.users (
     CONSTRAINT fk_users_enc  FOREIGN KEY (encryption_context_id)
         REFERENCES mmebot.encryption_contexts (encryption_context_id)
 );
-CREATE INDEX idx_users_email ON mmebot.users (email);
+CREATE INDEX idx_users_email ON mmebot.users (email_hash);
 
 -- =========================================================
 -- 3) sns_users

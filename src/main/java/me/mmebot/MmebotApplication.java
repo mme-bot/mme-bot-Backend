@@ -4,6 +4,7 @@ import me.mmebot.chat.config.ChatPersistenceQueueProperties;
 import me.mmebot.common.config.ExternalServiceProperties;
 import me.mmebot.common.config.JwtProperties;
 import me.mmebot.common.logging.MaskingProperties;
+import me.mmebot.common.mail.GoogleProperties;
 import me.mmebot.common.persistence.ApiProp;
 import me.mmebot.core.config.EncryptionKeyProperties;
 import me.mmebot.openai.config.OpenAIProperties;
@@ -19,7 +20,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         ExternalServiceProperties.class,
         JwtProperties.class,
         EncryptionKeyProperties.class,
-//        GoogleProperties.class,
+        GoogleProperties.class,
         ChatPersistenceQueueProperties.class,
         MaskingProperties.class
         , OpenAIProperties.class

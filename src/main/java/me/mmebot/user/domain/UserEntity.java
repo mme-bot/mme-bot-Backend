@@ -61,7 +61,7 @@ public class UserEntity {
     private boolean sns;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "email_encrypt_id"
+    @JoinColumn(name = "encryption_context_id"
 //            , nullable = false
     )
     private EncryptionContextEntity emailEncryptionContext;
