@@ -70,7 +70,7 @@ public class ChatController {
     }
 
     @GetMapping("/{chatSessionId}/messages")
-    public List<ChatMsg> chatMsgs(@RequestParam Long userId,
+    public List<ChatMsg> chatMsgs(@AuthenticationPrincipal Long userId,
                                   @PathVariable("chatSessionId") Long chatSessionId) {
         return chatService.getChatMsgs(userId, chatSessionId);
     }
