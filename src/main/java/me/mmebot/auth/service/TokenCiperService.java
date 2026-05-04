@@ -7,7 +7,7 @@ import me.mmebot.auth.domain.token.EncryptedToken;
 import me.mmebot.auth.domain.token.TokenCipher;
 import me.mmebot.auth.domain.token.TokenCipherException;
 import me.mmebot.auth.domain.token.TokenCipherSpec;
-import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.domain.EncryptionContextEntity;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -34,12 +34,12 @@ public class TokenCiperService {
         );
     }
 
-    public String getDecodeToken(String token, EncryptionContext context, AuthTokenType type, String tag) {
+    public String getDecodeToken(String token, EncryptionContextEntity context, AuthTokenType type, String tag) {
         return tokenCipher.decrypt(asEncryptedToken(token, context, type.name()), TokenCipherSpec.of(getAad(tag), getAadHash(tag)));
     }
 
     private EncryptedToken asEncryptedToken(String payload,
-                                            EncryptionContext context,
+                                            EncryptionContextEntity context,
                                             String label) {
         if (payload == null || context == null) {
             throw new TokenCipherException("No encrypted " + label + " available");

@@ -1,100 +1,48 @@
 package me.mmebot.auth.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import me.mmebot.common.persistence.DatabaseNames;
-
 import java.time.OffsetDateTime;
+import java.util.Arrays;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import me.mmebot.core.domain.EncryptionContext;
-import me.mmebot.user.domain.User;
-import org.hibernate.annotations.CreationTimestamp;
+import me.mmebot.auth.jwt.JwtPayload;
+import me.mmebot.core.domain.EncryptionContextEntity;
 
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
 @Builder
-@Entity
-@Table(name = DatabaseNames.Tables.AUTH_TOKEN, schema = DatabaseNames.Schemas.MME_BOT, indexes = {
-        @Index(name = "idx_auth_token_user_issued_desc", columnList = "user_id, issued_at DESC")
-})
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class AuthToken {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "auth_token_id")
-    private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
-    private AuthTokenType type;
-
-    @Column(name = "token", columnDefinition = "TEXT")
-    private String token;
-
-    @CreationTimestamp
-    @Column(name = "issued_at", nullable = false, updatable = false)
-    private OffsetDateTime issuedAt;
-
-    @Column(name = "expired_at", nullable = false)
-    private OffsetDateTime expiredAt;
-
-    @Column(name = "revoked_at")
+    private final Long id;
+    private final Long userId;
+    private final AuthTokenType type;
+    private final String token;
+    private final OffsetDateTime issuedAt;
+    private final OffsetDateTime expiredAt;
     private OffsetDateTime revokedAt;
+    private final String userAgent;
+    private final String ipAddress;
+    private final EncryptionContextEntity encryptionContext;
 
-    @Column(name = "user_agent", columnDefinition = "TEXT")
-    private String userAgent;
-
-    @Column(name = "ip_address")
-    private String ipAddress;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "encryption_context_id", nullable = false)
-    private EncryptionContext encryptionContext;
-
-//    public AuthToken(User user,
-//                     AuthTokenType type,
-//                     String token,
-//                     OffsetDateTime expiredAt,
-//                     String ipAddress,
-//                     String userAgent,
-//                     TokenCipher tokenCipher,
-//                     TokenHashService tokenHashService) {
-//        this(user, type, token, expiredAt, ipAddress, userAgent, tokenCipher, tokenHashService, null);
-//    }
-
-    public AuthToken(User user,
-                     AuthTokenType type,
-                     String token,
-                     EncryptionContext context,
-                     OffsetDateTime expiredAt,
-                     String ipAddress,
-                     String userAgent) {
-        this.user = user;
-        this.type = type;
-        this.token = token;
-        this.expiredAt = expiredAt;
-        this.ipAddress = ipAddress;
-        this.encryptionContext = context;
-        this.userAgent = userAgent;
+    public static AuthToken issue(Long userId,
+                                  AuthTokenType type,
+                                  String token,
+                                  EncryptionContextEntity encryptionContext,
+                                  OffsetDateTime expiredAt,
+                                  String ipAddress,
+                                  String userAgent) {
+        return AuthToken.builder()
+                .userId(userId)
+                .type(type)
+                .token(token)
+                .issuedAt(OffsetDateTime.now())
+                .expiredAt(expiredAt)
+                .ipAddress(ipAddress)
+                .userAgent(userAgent)
+                .encryptionContext(encryptionContext)
+                .build();
     }
 
     public boolean isRevoked() {
@@ -102,10 +50,36 @@ public class AuthToken {
     }
 
     public boolean isExpired(OffsetDateTime now) {
-        return expiredAt.isBefore(now) || expiredAt.isEqual(now);
+        return expiredAt != null && (expiredAt.isBefore(now) || expiredAt.isEqual(now));
     }
 
     public void revoke(OffsetDateTime revokedAt) {
         this.revokedAt = revokedAt;
+    }
+
+    public void ensureRefreshToken() {
+        if (type != AuthTokenType.REFRESH) {
+            throw new InvalidAuthTokenTypeException(id, type);
+        }
+    }
+
+    public void ensureUsable(OffsetDateTime now) {
+        if (isRevoked() || isExpired(now)) {
+            throw new UnusableAuthTokenException(id);
+        }
+    }
+
+    public boolean matchesAadHash(byte[] aadHash) {
+        return encryptionContext != null
+                && Arrays.equals(aadHash, encryptionContext.getAadHash());
+    }
+
+    public void ensureMatchesPayload(JwtPayload payload, Long expectedUserId) {
+        if (!Objects.equals(payload.userId(), expectedUserId)) {
+            throw new AuthTokenUserMismatchException(id, expectedUserId, payload.userId());
+        }
+        if (payload.tokenType() != type) {
+            throw new AuthTokenPayloadTypeMismatchException(id, type, payload.tokenType());
+        }
     }
 }

@@ -8,7 +8,7 @@ import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import me.mmebot.chat.domain.ChatMessage;
+import me.mmebot.chat.domain.ChatMessageEntity;
 import me.mmebot.common.KoreanTextAnalyzer;
 import me.mmebot.openai.dto.ChatStreamResponse;
 import me.mmebot.openai.exception.OpenAIException;
@@ -168,11 +168,11 @@ public class OpenAIService implements OpenAIChatPort {
         );
     }
 
-    public Flux<ChatStreamResponse> sendChatMessage(String prompt, List<ChatMessage> messages, String reqMsg) {
+    public Flux<ChatStreamResponse> sendChatMessage(String prompt, List<ChatMessageEntity> messages, String reqMsg) {
         return summarizeStream(requestBuilder.buildMessages(prompt, messages, reqMsg));
     }
 
-    public String sendChatMessageSync(String prompt, List<ChatMessage> messages, String reqMsg) {
+    public String sendChatMessageSync(String prompt, List<ChatMessageEntity> messages, String reqMsg) {
         return summarizeMessages(requestBuilder.buildMessages(prompt, messages, reqMsg));
     }
 
@@ -181,7 +181,7 @@ public class OpenAIService implements OpenAIChatPort {
             String botScript,
             String chatStatus,
             String emotion,
-            List<ChatMessage> chatMsgList,
+            List<ChatMessageEntity> chatMsgList,
             String reqMsg,
             String nickname
     ) {
@@ -224,7 +224,7 @@ public class OpenAIService implements OpenAIChatPort {
             String botScript,
             String chatStatus,
             String emotion,
-            List<ChatMessage> chatMsgList,
+            List<ChatMessageEntity> chatMsgList,
             String reqMsg,
             String nickname
     ) {
@@ -269,7 +269,7 @@ public class OpenAIService implements OpenAIChatPort {
         return summarizeSync(messages);
     }
 
-    
+
     public Flux<ChatStreamResponse> sendFirstChatMsg(String prompt) {
         return summarizeStream(requestBuilder.buildMessages(prompt, Collections.emptyList(), "대화 시작"));
     }
@@ -411,17 +411,17 @@ public class OpenAIService implements OpenAIChatPort {
                 - 핵심: 어떤 감정이든 옳다고 말해주는 나만의 친구 몽몽
                 """;
         /**
-        return """
-                [페르소나 규칙]
-                당신은 기가차드(GigaChad) 스타일로 말하는 AI다.
-                1) 말투는 강인하고 단호하며 자신감 넘쳐야 한다.
-                2) 감탄사, 절대적 표현(“완벽하다”, “틀림없다”)을 자주 사용하며, 자신을 최정상으로 여긴다.
-                3) 상대방을 강하게 긍정하고 동기부여한다.
-                4) 전문적인 설명을 해도 기가차드 톤을 유지한다.
-                5) 유머는 진지한 척하지만 과장되게.
-                6) 이모티콘, 귀여운 표현, 가벼운 말투 사용 금지.
-                7) 규칙은 모든 응답에 적용되며 예외가 없다.
-                """;
+         return """
+         [페르소나 규칙]
+         당신은 기가차드(GigaChad) 스타일로 말하는 AI다.
+         1) 말투는 강인하고 단호하며 자신감 넘쳐야 한다.
+         2) 감탄사, 절대적 표현(“완벽하다”, “틀림없다”)을 자주 사용하며, 자신을 최정상으로 여긴다.
+         3) 상대방을 강하게 긍정하고 동기부여한다.
+         4) 전문적인 설명을 해도 기가차드 톤을 유지한다.
+         5) 유머는 진지한 척하지만 과장되게.
+         6) 이모티콘, 귀여운 표현, 가벼운 말투 사용 금지.
+         7) 규칙은 모든 응답에 적용되며 예외가 없다.
+         """;
          **/
     }
 

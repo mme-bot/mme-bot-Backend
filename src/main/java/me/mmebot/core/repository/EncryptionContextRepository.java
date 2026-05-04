@@ -1,10 +1,10 @@
 package me.mmebot.core.repository;
 
 import java.util.Optional;
-import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.domain.EncryptionContextEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface EncryptionContextRepository extends JpaRepository<EncryptionContext, Long> {
+public interface EncryptionContextRepository extends JpaRepository<EncryptionContextEntity, Long> {
 
-    Optional<EncryptionContext> findTopByKeyIdOrderByEncryptAtDesc(Long keyId);
+    Optional<EncryptionContextEntity> findTopByKeyIdOrderByEncryptAtDesc(Long keyId);
 }

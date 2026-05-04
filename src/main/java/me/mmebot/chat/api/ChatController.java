@@ -41,8 +41,8 @@ public class ChatController {
 
     @PostMapping("/{chatSessionId}/messages/start")
     public StartChatInitRes initFirstChatMsg(
-            @RequestBody StartChatReq req,
-            @RequestParam Long chatSessionId
+            @RequestBody @Valid StartChatReq req,
+            @PathVariable("chatSessionId") Long chatSessionId
     ) {
         String streamId = UUID.randomUUID().toString();
 

@@ -1,12 +1,11 @@
 package me.mmebot.openai.service;
 
-import me.mmebot.chat.domain.ChatMessage;
-import me.mmebot.openai.dto.ChatMessageRole;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import me.mmebot.chat.domain.ChatMessageEntity;
+import me.mmebot.openai.dto.ChatMessageRole;
+import org.springframework.stereotype.Component;
 
 /**
  * OpenAI Chat 요청 메시지 구성 유틸리티.
@@ -20,7 +19,7 @@ public class OpenAIChatRequestBuilder {
      */
     public List<Map<String, String>> buildMessages(
             String systemPrompt,
-            List<ChatMessage> history,
+            List<ChatMessageEntity> history,
             String userPrompt
     ) {
         List<Map<String, String>> messages = new ArrayList<>();
@@ -33,7 +32,7 @@ public class OpenAIChatRequestBuilder {
         }
 
         if (history != null && !history.isEmpty()) {
-            for (ChatMessage msg : history) {
+            for (ChatMessageEntity msg : history) {
                 messages.add(Map.of(
                         "role", toOpenAiRole(msg.getRole()),
                         "content", msg.getContent()
@@ -61,4 +60,3 @@ public class OpenAIChatRequestBuilder {
         };
     }
 }
-

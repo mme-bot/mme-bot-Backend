@@ -14,7 +14,7 @@ public class AuthException extends ApiException {
     }
 
     public static AuthException deletedAccount() {
-        return new AuthException(HttpStatus.FORBIDDEN, "User account has been deleted", "auth.deleted_account");
+        return new AuthException(HttpStatus.FORBIDDEN, "UserEntity account has been deleted", "auth.deleted_account");
     }
 
     public static AuthException duplicateEmail() {
@@ -30,7 +30,7 @@ public class AuthException extends ApiException {
     }
 
     public static AuthException userNotFound() {
-        return new AuthException(HttpStatus.NOT_FOUND, "User not found", "auth.user_not_found");
+        return new AuthException(HttpStatus.NOT_FOUND, "UserEntity not found", "auth.user_not_found");
     }
 
     public static AuthException authenticationRequired() {
@@ -60,4 +60,8 @@ public class AuthException extends ApiException {
     public static AuthException emailRequired() {
         return new AuthException(HttpStatus.BAD_REQUEST, "Email must not be null", "auth.email_required");
     }
+
+//    public static AuthException authenticationRequired() {
+//        return new AuthException(HttpStatus.UNAUTHORIZED, "Authentication is required", "auth.authentication_required");
+//    }
 }

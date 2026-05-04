@@ -10,16 +10,15 @@
 //import java.util.regex.Pattern;
 //import lombok.RequiredArgsConstructor;
 //import lombok.extern.slf4j.Slf4j;
-//import me.mmebot.auth.domain.EmailVerification;
+//import me.mmebot.auth.domain.EmailVerificationEntity;
 //import me.mmebot.auth.exception.EmailVerificationException;
 //import me.mmebot.auth.repository.EmailVerificationRepository;
-//import me.mmebot.auth.service.AuthServiceRecords.SendEmailVerificationResult;
 //import me.mmebot.common.mail.MailMessage;
-//import me.mmebot.common.mail.MailSender;
 //import me.mmebot.common.mail.MailSendingException;
 //import me.mmebot.core.service.EncryptionContextFactory;
 //import org.springframework.core.io.Resource;
 //import org.springframework.core.io.ResourceLoader;
+//import org.springframework.mail.MailSender;
 //import org.springframework.stereotype.Service;
 //import org.springframework.util.FileCopyUtils;
 //
@@ -45,7 +44,7 @@
 //    private final SecureRandom secureRandom = new SecureRandom();
 //    private volatile String cachedTemplate;
 //
-//    public SendEmailVerificationResult send(String email) {
+//    public EmailVerificationResult send(String email) {
 //        String normalizedEmail = normalizeEmail(email);
 //        if (!EMAIL_PATTERN.matcher(normalizedEmail).matches()) {
 //            log.warn("Email verification send failed: invalid format for {}", email);
@@ -62,21 +61,21 @@
 //        String code = nextCode();
 //        byte[] aadHash = tokenHashService.hash(normalizedEmail + ":" + code);
 //
-//        EmailVerification verification = EmailVerification.builder()
+//        EmailVerificationEntity verification = EmailVerificationEntity.builder()
 //                .email(normalizedEmail)
 //                .code(code)
 //                .expiredAt(now.plus(EXPIRATION))
 //                .encryptionContext(encryptionContextFactory.createContext(aadHash))
 //                .build();
 //
-//        EmailVerification saved = repository.save(verification);
+//        EmailVerificationEntity saved = repository.save(verification);
 //        sendVerificationEmail(saved.getEmail(), code);
 //        log.info("Email verification code generated successfully: verificationId={}", saved.getId());
-//        return new SendEmailVerificationResult(saved.getId(), code);
+//        return new EmailVerificationResult(saved.getId(), code);
 //    }
 //
 //    public void check(Long emailVerificationId, String code) {
-//        EmailVerification verification = repository.findById(emailVerificationId)
+//        EmailVerificationEntity verification = repository.findById(emailVerificationId)
 //                .orElseThrow(() -> {
 //                    log.warn("Email verification check failed: verification {} not found", emailVerificationId);
 //                    return EmailVerificationException.notFound();
@@ -98,8 +97,8 @@
 //    }
 //
 //    @Transactional
-//    public EmailVerification requireVerified(Long emailVerificationId, String email) {
-//        EmailVerification verification = repository.findById(emailVerificationId)
+//    public EmailVerificationEntity requireVerified(Long emailVerificationId, String email) {
+//        EmailVerificationEntity verification = repository.findById(emailVerificationId)
 //                .orElseThrow(() -> {
 //                    log.warn("Email verification requirement failed: verification {} not found", emailVerificationId);
 //                    return EmailVerificationException.notFound();

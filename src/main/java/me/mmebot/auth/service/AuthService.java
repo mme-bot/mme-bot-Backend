@@ -9,8 +9,9 @@ import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import me.mmebot.auth.domain.AuthToken;
+import me.mmebot.auth.domain.AuthTokenEntity;
 import me.mmebot.auth.domain.AuthTokenType;
-import me.mmebot.auth.domain.Role;
+import me.mmebot.auth.domain.RoleEntity;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.domain.token.EncryptedToken;
 import me.mmebot.auth.exception.AuthException;
@@ -25,10 +26,11 @@ import me.mmebot.auth.service.AuthServiceRecords.ClientMetadata;
 import me.mmebot.auth.service.AuthServiceRecords.SignInResult;
 import me.mmebot.auth.service.AuthServiceRecords.SignUpCommand;
 import me.mmebot.auth.service.AuthServiceRecords.TokenPair;
-import me.mmebot.core.domain.EncryptionContext;
 import me.mmebot.common.logging.Masked;
+import me.mmebot.core.domain.EncryptionContextEntity;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.user.domain.User;
+import me.mmebot.user.domain.UserEntity;
 import me.mmebot.user.repository.UserRepository;
 import me.mmebot.user.service.UserEmailProtector;
 import me.mmebot.user.service.UserEmailProtector.EmailSecrets;
@@ -73,8 +75,10 @@ public class AuthService {
 
         List<RoleName> roles = userDetails.getRoleNames();
 
-        TokenPair tokens = issueTokens(user, roles, metadata);
-        Long botId = user.getBot() != null ? user.getBot().getId() : null;
+        UserEntity userEntity = userRepository.findById(user.getId())
+                .orElseThrow(AuthException::userNotFound);
+        TokenPair tokens = issueTokens(userEntity, roles, metadata);
+        Long botId = user.getBotId();
         return new SignInResult(user.getId(), botId, user.getNickname(), tokens.accessToken(), tokens.refreshToken());
     }
 
@@ -108,8 +112,8 @@ public class AuthService {
                 });
 
         EmailSecrets emailSecrets = userEmailProtector.prepare(normalizedEmail, emailAadHash);
-        EncryptionContext encryptionContext = encryptionContextFactory.createContext(emailAadHash);
-        User user = User.builder()
+        EncryptionContextEntity encryptionContext = encryptionContextFactory.createContext(emailAadHash);
+        UserEntity user = UserEntity.builder()
                 .emailCipher(emailSecrets.emailCipher())
                 .emailHash(emailSecrets.emailHash())
                 .password(passwordEncoder.encode(command.password()))
@@ -118,9 +122,9 @@ public class AuthService {
                 .emailEncryptionContext(encryptionContext)
                 .build();
 
-        User saved = userRepository.save(user);
+        UserEntity saved = userRepository.save(user);
         if (!roleRepository.existsByUserIdAndRoleName(saved.getId(), RoleName.ROLE_USER)) {
-            roleRepository.save(Role.builder()
+            roleRepository.save(RoleEntity.builder()
                     .user(saved)
                     .roleName(RoleName.ROLE_USER)
                     .build());
@@ -128,14 +132,14 @@ public class AuthService {
     }
 
     public TokenPair reissue(Long userId, @Masked String refreshToken, ClientMetadata metadata) {
-        User user = userRepository.findById(userId)
+        UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> AuthException.userNotFound());
         if (user.isDeleted()) {
             throw AuthException.deletedAccount();
         }
 
         byte[] userHash = tokenHashService.hash(userId.toString());
-        AuthToken authToken = authTokenRepository.findByUserIdAndToken(userId, refreshToken)
+        AuthTokenEntity authToken = authTokenRepository.findByUserIdAndToken(userId, refreshToken)
                 .orElseThrow(() -> AuthException.tokenNotFound());
 
         // 토큰 타입이 refresh 타입이 아님
@@ -169,21 +173,21 @@ public class AuthService {
          * 인증 완료 되었으므로 새 토큰 만들기
          */
         List<RoleName> roles = roleRepository.findByUserId(userId).stream()
-                .map(Role::getRoleName)
+                .map(RoleEntity::getRoleName)
                 .toList();
 
         TokenPair tokenPair = issueTokens(user, roles, metadata);
         return tokenPair;
     }
 
-    private TokenPair issueTokens(User user, Collection<RoleName> roleNames, ClientMetadata metadata) {
+    private TokenPair issueTokens(UserEntity user, Collection<RoleName> roleNames, ClientMetadata metadata) {
         Collection<RoleName> effectiveRoles = roleNames.isEmpty()
                 ? List.of(RoleName.ROLE_USER)
                 : roleNames;
 
         String accessToken = jwtTokenService.createAccessToken(user.getId(), effectiveRoles);
         String refreshToken = jwtTokenService.createRefreshToken(user.getId(), effectiveRoles);
-        AuthToken authToken = storeRefreshToken(user, refreshToken, metadata);
+        AuthTokenEntity authToken = storeRefreshToken(user, refreshToken, metadata);
 
         // 암호화 후 redis 저장
         EncryptedToken encryptAccessToken = getEncryptAccessToken(user, accessToken);
@@ -192,7 +196,7 @@ public class AuthService {
         return new TokenPair(accessToken, authToken.getToken());
     }
 
-    private EncryptedToken getEncryptAccessToken(User user, String accessToken) {
+    private EncryptedToken getEncryptAccessToken(UserEntity user, String accessToken) {
         EncryptedToken encryptAccessToken = tokenCiperService.getEncryptedToken(accessToken, user.getId(), null);
         encryptionContextService.save(encryptAccessToken.context());
         return encryptAccessToken;
@@ -203,15 +207,15 @@ public class AuthService {
         redisService.enqueueRedis(key, accessToken, jwtTokenService.getAccessTokenExpiry());
     }
 
-    private AuthToken storeRefreshToken(User user, String refreshToken, ClientMetadata metadata) {
+    private AuthTokenEntity storeRefreshToken(UserEntity user, String refreshToken, ClientMetadata metadata) {
         JwtPayload payload = parseToken(refreshToken);
         EncryptedToken encryptedToken = tokenCiperService.getEncryptedToken(
                 refreshToken,
                 user.getId(),
                 null
         );
-        AuthToken authToken = new AuthToken(
-                user,
+        AuthToken authToken = AuthToken.issue(
+                user.getId(),
                 payload.tokenType(),
                 encryptedToken.payload(),
                 encryptedToken.context(),
@@ -219,9 +223,7 @@ public class AuthService {
                 metadata != null ? metadata.ipAddress() : null,
                 metadata != null ? metadata.userAgent() : null
         );
-        authTokenRepository.save(authToken);
-
-        return authToken;
+        return authTokenRepository.save(AuthTokenEntity.from(authToken, user));
     }
 
     private JwtPayload parseToken(String token) {

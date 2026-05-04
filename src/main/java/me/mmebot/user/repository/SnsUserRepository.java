@@ -1,10 +1,10 @@
 package me.mmebot.user.repository;
 
 import java.util.Optional;
-import me.mmebot.user.domain.SnsUser;
+import me.mmebot.user.domain.SnsUserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface SnsUserRepository extends JpaRepository<SnsUser, Long> {
+public interface SnsUserRepository extends JpaRepository<SnsUserEntity, Long> {
 
-    Optional<SnsUser> findByProviderAndProviderUid(String provider, String providerUid);
+    Optional<SnsUserEntity> findByProviderAndProviderUid(String provider, String providerUid);
 }

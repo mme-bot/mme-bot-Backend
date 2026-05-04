@@ -8,8 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.common.crypto.AesGcmCryptoService;
 import me.mmebot.core.config.EncryptionKeyProperties;
-import me.mmebot.core.domain.EncryptionContext;
-import me.mmebot.core.domain.EncryptionKey;
+import me.mmebot.core.domain.EncryptionContextEntity;
+import me.mmebot.core.domain.EncryptionKeyEntity;
 import me.mmebot.core.domain.EncryptionKeyStatus;
 import me.mmebot.core.repository.EncryptionContextRepository;
 import me.mmebot.core.repository.EncryptionKeyRepository;
@@ -40,15 +40,15 @@ public class EncryptionContextFactory {
         this.aesGcmCryptoService = aesGcmCryptoService;
     }
 
-//    public EncryptionContext createContext() {
+//    public EncryptionContextEntity createContext() {
 //        return createContext();
 //    }
 
-    public EncryptionContext createContext(byte[] aadHash) {
-        EncryptionKey key = keyRepository.findTopByStatusOrderByValidFromDesc(ACTIVE_STATUS)
+    public EncryptionContextEntity createContext(byte[] aadHash) {
+        EncryptionKeyEntity key = keyRepository.findTopByStatusOrderByValidFromDesc(ACTIVE_STATUS)
                 .orElseGet(this::createDefaultKey);
 
-        EncryptionContext context = EncryptionContext.builder()
+        EncryptionContextEntity context = EncryptionContextEntity.builder()
                 .key(key)
                 .iv(randomBytes(keyLengths.iv()))
                 .tag(randomBytes(keyLengths.tag()))
@@ -56,23 +56,23 @@ public class EncryptionContextFactory {
                 .encryptAt(OffsetDateTime.now())
                 .build();
 
-        EncryptionContext saved = contextRepository.save(context);
+        EncryptionContextEntity saved = contextRepository.save(context);
         log.debug("Created encryption context {} using key {}", saved.getId(), key.getId());
         return saved;
     }
 
-    public EncryptionContext createContext(String hashString) {
+    public EncryptionContextEntity createContext(String hashString) {
         return createContext(aesGcmCryptoService.toAadBytes(hashString));
     }
 
-    private EncryptionKey createDefaultKey() {
-        EncryptionKey key = EncryptionKey.builder()
+    private EncryptionKeyEntity createDefaultKey() {
+        EncryptionKeyEntity key = EncryptionKeyEntity.builder()
                 .alg(keyProperties.algorithm())
                 .validFrom(OffsetDateTime.now())
                 .keyMaterial(randomBytes(keyLengths.key()))
                 .status(ACTIVE_STATUS)
                 .build();
-        EncryptionKey saved = keyRepository.save(key);
+        EncryptionKeyEntity saved = keyRepository.save(key);
         log.info("Generated default ACTIVE encryption key {}", saved.getId());
         return saved;
     }

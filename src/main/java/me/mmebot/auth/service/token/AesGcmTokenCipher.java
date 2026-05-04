@@ -7,7 +7,7 @@ import me.mmebot.auth.domain.token.EncryptedToken;
 import me.mmebot.auth.domain.token.TokenCipher;
 import me.mmebot.auth.domain.token.TokenCipherException;
 import me.mmebot.auth.domain.token.TokenCipherSpec;
-import me.mmebot.core.domain.EncryptionContext;
+import me.mmebot.core.domain.EncryptionContextEntity;
 import me.mmebot.core.service.AesGcmEncryptor;
 import me.mmebot.core.service.AesGcmEncryptor.EncryptionResult;
 import me.mmebot.core.service.EncryptionContextFactory;
@@ -25,7 +25,7 @@ public class AesGcmTokenCipher implements TokenCipher {
     public EncryptedToken encrypt(String plainText, TokenCipherSpec spec) {
         Objects.requireNonNull(plainText, "plainText must not be null");
         TokenCipherSpec effectiveSpec = spec != null ? spec : TokenCipherSpec.empty();
-        EncryptionContext context = createContext(effectiveSpec);
+        EncryptionContextEntity context = createContext(effectiveSpec);
         EncryptionResult result = encryptor.encrypt(plainText, context, effectiveSpec.aad());
         context.updateTag(result.tag());
         log.debug("Encrypted token with context {}", context.getId());
@@ -46,7 +46,7 @@ public class AesGcmTokenCipher implements TokenCipher {
         }
     }
 
-    private EncryptionContext createContext(TokenCipherSpec spec) {
+    private EncryptionContextEntity createContext(TokenCipherSpec spec) {
         byte[] aadHash = spec.aadHash();
         return encryptionContextFactory.createContext(aadHash);
     }

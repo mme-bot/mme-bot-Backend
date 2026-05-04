@@ -1,10 +1,10 @@
 package me.mmebot.diary.repository;
 
 import java.util.Optional;
-import me.mmebot.diary.domain.DiaryChunkEmbedding;
+import me.mmebot.diary.domain.DiaryChunkEmbeddingEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface DiaryChunkEmbeddingRepository extends JpaRepository<DiaryChunkEmbedding, Long> {
+public interface DiaryChunkEmbeddingRepository extends JpaRepository<DiaryChunkEmbeddingEntity, Long> {
 
-    Optional<DiaryChunkEmbedding> findByDiaryChunkId(Long diaryChunkId);
+    Optional<DiaryChunkEmbeddingEntity> findByDiaryChunkId(Long diaryChunkId);
 }

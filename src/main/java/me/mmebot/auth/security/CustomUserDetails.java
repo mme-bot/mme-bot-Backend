@@ -3,7 +3,6 @@ package me.mmebot.auth.security;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -37,10 +36,9 @@ public class CustomUserDetails implements UserDetails {
                 .map(RoleName::name)
                 .map(SimpleGrantedAuthority::new)
                 .toList();
-        String username = user.getEmailCipher();
         return CustomUserDetails.builder()
                 .user(user)
-                .email(username)
+                .email(user.getEmailCipher())
                 .password(user.getPassword())
                 .deleted(user.isDeleted())
                 .roleNames(effectiveRoles)

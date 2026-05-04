@@ -11,19 +11,19 @@ public class UserException extends ApiException {
 
     public static UserException userNotFound(Long userId) {
         return new UserException(HttpStatus.NOT_FOUND,
-                "User %d not found".formatted(userId),
+                "UserEntity %d not found".formatted(userId),
                 "diary.user_not_found");
     }
 
     public static UserException userDeleted(Long userId) {
         return new UserException(HttpStatus.FORBIDDEN,
-                "User %d is deleted".formatted(userId),
+                "UserEntity %d is deleted".formatted(userId),
                 "diary.user_deleted");
     }
 
     public static UserException botNotFound(Long botId) {
         return new UserException(HttpStatus.NOT_FOUND,
-                "Bot %d not found".formatted(botId),
+                "BotEntity %d not found".formatted(botId),
                 "diary.bot_not_found");
     }
 

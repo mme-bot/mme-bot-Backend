@@ -1,11 +1,11 @@
 package me.mmebot.core.repository;
 
 import java.util.Optional;
-import me.mmebot.core.domain.EncryptionKey;
+import me.mmebot.core.domain.EncryptionKeyEntity;
 import me.mmebot.core.domain.EncryptionKeyStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface EncryptionKeyRepository extends JpaRepository<EncryptionKey, Long> {
+public interface EncryptionKeyRepository extends JpaRepository<EncryptionKeyEntity, Long> {
 
-    Optional<EncryptionKey> findTopByStatusOrderByValidFromDesc(EncryptionKeyStatus status);
+    Optional<EncryptionKeyEntity> findTopByStatusOrderByValidFromDesc(EncryptionKeyStatus status);
 }

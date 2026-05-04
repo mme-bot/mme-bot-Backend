@@ -58,7 +58,8 @@ CREATE TABLE mmebot.bot_image (
 CREATE TABLE mmebot.users (
     user_id                 BIGSERIAL PRIMARY KEY,
     bot_id                  BIGINT,
-    email                   VARCHAR(320) NOT NULL UNIQUE,
+    email_hash              VARCHAR(320) NOT NULL UNIQUE,
+    email_cipher            VARCHAR(320),
     password                VARCHAR(255) NOT NULL,
     nickname                VARCHAR(40)  NOT NULL,
     is_sns                  BOOLEAN NOT NULL DEFAULT FALSE,
@@ -70,7 +71,7 @@ CREATE TABLE mmebot.users (
     CONSTRAINT fk_users_enc  FOREIGN KEY (encryption_context_id)
         REFERENCES mmebot.encryption_contexts (encryption_context_id)
 );
-CREATE INDEX idx_users_email ON mmebot.users (email);
+CREATE INDEX idx_users_email ON mmebot.users (email_hash);
 
 -- =========================================================
 -- 3) sns_users
@@ -186,12 +187,16 @@ CREATE TABLE mmebot.chat_message (
     role                    VARCHAR(16) NOT NULL,
     content                 TEXT NOT NULL,
     encryption_context_id   BIGINT NOT NULL,
+    reply_to_message_id     BIGINT,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT fk_chat_message_session FOREIGN KEY (chat_session_id)
         REFERENCES mmebot.chat_session (chat_session_id)
         ON DELETE CASCADE,
     CONSTRAINT fk_chat_message_enc FOREIGN KEY (encryption_context_id)
         REFERENCES mmebot.encryption_contexts (encryption_context_id),
+    CONSTRAINT fk_chat_message_reply_to FOREIGN KEY (reply_to_message_id)
+        REFERENCES mmebot.chat_message (chat_message_id)
+        ON DELETE SET NULL,
     CONSTRAINT uk_chat_message_session_seq UNIQUE (chat_session_id, seq)
 );
 CREATE INDEX idx_chat_message_session_seq ON mmebot.chat_message (chat_session_id, seq);
