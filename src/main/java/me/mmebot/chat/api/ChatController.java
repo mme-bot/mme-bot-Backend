@@ -12,6 +12,7 @@ import me.mmebot.chat.api.dto.ChatMsgRes.StartChatRes;
 import me.mmebot.chat.service.ChatService;
 import me.mmebot.stream.StreamContextStore;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
@@ -72,6 +73,12 @@ public class ChatController {
     public List<ChatMsg> chatMsgs(@RequestParam Long userId,
                                   @PathVariable("chatSessionId") Long chatSessionId) {
         return chatService.getChatMsgs(userId, chatSessionId);
+    }
+
+    @GetMapping("/diaries/{diaryId}/messages")
+    public List<ChatMsg> chatMsgsByDiaryId(@AuthenticationPrincipal Long userId,
+                                           @PathVariable("diaryId") Long diaryId) {
+        return chatService.getChatMsgsByDiaryId(userId, diaryId);
     }
 
 //    @PostMapping("/{chatSessionId}/message/start")

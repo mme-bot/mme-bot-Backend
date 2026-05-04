@@ -17,6 +17,7 @@ import me.mmebot.common.crypto.AesGcmCryptoService;
 import me.mmebot.core.domain.EncryptionContextEntity;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.core.service.TemplateService;
+import me.mmebot.diary.domain.Diary;
 import me.mmebot.diary.domain.DiaryEntity;
 import me.mmebot.diary.service.DiaryService;
 import me.mmebot.openai.dto.ChatMessageRole;
@@ -108,6 +109,10 @@ public class ChatService {
 
     private Optional<ChatSessionEntity> getChatSessionByDiaryId(Long diaryId) {
         return chatSessionRepository.findByDiaryId(diaryId);
+    }
+
+    protected Optional<ChatSessionEntity> getChatSessionWithDiaryAndUserByDiaryId(Long diaryId) {
+        return chatSessionRepository.findWithDiaryAndUserByDiaryId(diaryId);
     }
 
     public Flux<ChatStreamPayload> createChatMessage(String streamId) {
@@ -602,6 +607,36 @@ public class ChatService {
                     chatSession.getId(),
                     user.getId(),
                     chatSession.getDiary().getUser().getId());
+        }
+
+        List<ChatMessageEntity> chatMessages = getChatMessages(chatSession);
+        if (chatMessages.isEmpty()) {
+            throw ChatException.chatSessionHasNoMessages(chatSession.getId());
+        }
+
+        List<ChatMsg> chatMsgs = new ArrayList<>(chatMessages.stream().map(msg -> {
+            String message = aesGcmCryptoService.decryptWithAad(msg.getContent(), msg.getEncryptionContext().getAadHash());
+            return new ChatMsg(msg.getSeq(), msg.getRole(), message);
+        }).toList());
+
+        chatMsgs.sort(Comparator.comparing(ChatMsg::seq));
+
+        return chatMsgs;
+    }
+
+    public List<ChatMsg> getChatMsgsByDiaryId(Long userId, Long diaryId) {
+        UserEntity user = userService.getActiveUser(userId);
+
+        ChatSessionEntity chatSession = getChatSessionWithDiaryAndUserByDiaryId(diaryId)
+                .orElseThrow(() -> ChatException.chatSessionNotFoundByDiaryId(diaryId));
+
+        Diary diary = chatSession.getDiary().toModel();
+        if (!diary.isOwnedBy(user.getId())) {
+            throw ChatException.diaryOwnerMismatch(
+                    diary.getId(),
+                    user.getId(),
+                    diary.getUserId()
+            );
         }
 
         List<ChatMessageEntity> chatMessages = getChatMessages(chatSession);
