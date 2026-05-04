@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import me.mmebot.auth.application.port.in.SignUpUseCase;
 import me.mmebot.auth.application.port.in.command.registration.SignUpCommand;
 import me.mmebot.auth.application.port.out.crypto.EmailProtectPort;
-import me.mmebot.auth.application.port.out.crypto.PasswordEncodePort;
+import me.mmebot.auth.application.port.out.crypto.PasswordPort;
 import me.mmebot.auth.application.port.out.persistence.EncryptionContextPort;
 import me.mmebot.auth.application.port.out.persistence.SaveRolePort;
 import me.mmebot.auth.application.port.out.persistence.UserPersistencePort;
@@ -26,7 +26,7 @@ public class SignUpService implements SignUpUseCase {
     private final UserPersistencePort userPersistencePort;
     private final EmailProtectPort emailProtectPort;
     private final EncryptionContextPort encryptionContextPort;
-    private final PasswordEncodePort passwordEncodePort;
+    private final PasswordPort passwordPort;
     private final SaveRolePort saveRolePort;
 
     @Override
@@ -48,7 +48,7 @@ public class SignUpService implements SignUpUseCase {
         UserEntity user = UserEntity.builder()
                 .emailCipher(emailSecrets.emailCipher())
                 .emailHash(emailSecrets.emailHash())
-                .password(passwordEncodePort.encode(command.password()))
+                .password(passwordPort.encode(command.password()))
                 .nickname(command.nickname().trim())
                 .sns(false)
                 .emailEncryptionContext(encryptionContext)

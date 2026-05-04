@@ -23,9 +23,7 @@ public class User {
         return deletedAt != null;
     }
 
-    public void ensureActive() {
-        if (isDeleted()) {
-            throw new UserDeletedException(id);
-        }
+    public boolean isActive() {
+        return !isDeleted();
     }
 }
