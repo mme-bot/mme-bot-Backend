@@ -13,16 +13,10 @@ public class DiaryResponseMapper {
     private final AesGcmCryptoService aesGcmCryptoService;
 
     public DiaryDetail toDetail(DiaryEntity diary) {
-        byte[] aadHash = diary.getEncryptionContext().getAadHash();
-        String content = aesGcmCryptoService.decryptWithAad(diary.getContent(), aadHash);
-
         return new DiaryDetail(
                 diary.getId(),
-                content,
                 diary.getEmotion(),
-                diary.getDate(),
-                diary.getCreatedAt(),
-                diary.getUpdatedAt()
+                diary.getDate()
         );
     }
 }

@@ -4,15 +4,16 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import me.mmebot.diary.domain.DiaryEntity;
-import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface DiaryRepository extends JpaRepository<DiaryEntity, Long> {
+public interface DiaryRepository {
+
+    DiaryEntity save(DiaryEntity diary);
 
     Optional<DiaryEntity> findByUserIdAndDateAndDeletedAtIsNull(Long userId, LocalDate date);
 
     Optional<DiaryEntity> findByIdAndDeletedAtIsNull(Long id);
 
-    List<DiaryEntity> findByUserIdAndDateBetweenAndDeletedAtIsNullOrderByDateDesc(
+    List<DiaryEntity> findMonthlyDiaries(
             Long userId,
             LocalDate startDate,
             LocalDate endDate

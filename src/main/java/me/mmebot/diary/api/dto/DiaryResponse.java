@@ -12,11 +12,8 @@ public final class DiaryResponse {
 
     public record DiaryDetail(
             Long diaryId,
-            String content,
             String emotion,
-            LocalDate date,
-            OffsetDateTime createdAt,
-            OffsetDateTime updatedAt
+            LocalDate date
     ) {
     }
 }

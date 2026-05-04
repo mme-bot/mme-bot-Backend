@@ -16,7 +16,6 @@ import me.mmebot.diary.domain.DiaryEntity;
 import me.mmebot.diary.exception.DiaryException;
 import me.mmebot.diary.mapper.DiaryResponseMapper;
 import me.mmebot.diary.repository.DiaryRepository;
-import me.mmebot.openai.service.OpenAIService;
 import me.mmebot.user.domain.UserEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +30,6 @@ public class DiaryService {
     private final DiaryRepository diaryRepository;
     private final UserService userService;
     private final EncryptionContextFactory encryptionContextFactory;
-    private final OpenAIService openAiService;
     private final DiaryResponseMapper diaryResponseMapper;
 
     public CreateDiaryRes createDiary(CreateDiaryRequest request) {
@@ -75,7 +73,7 @@ public class DiaryService {
         LocalDate startDate = yearMonth.atDay(1);
         LocalDate endDate = yearMonth.atEndOfMonth();
         List<DiaryDetail> details = diaryRepository
-                .findByUserIdAndDateBetweenAndDeletedAtIsNullOrderByDateDesc(user.getId(), startDate, endDate)
+                .findMonthlyDiaries(user.getId(), startDate, endDate)
                 .stream()
                 .map(diaryResponseMapper::toDetail)
                 .toList();
