@@ -9,7 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.experimental.FieldDefaults;
 import me.mmebot.auth.domain.RoleName;
-import me.mmebot.user.domain.UserEntity;
+import me.mmebot.user.domain.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,14 +20,14 @@ import org.springframework.security.core.userdetails.UserDetails;
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 public class CustomUserDetails implements UserDetails {
 
-    UserEntity user;
+    User user;
     String email;
     String password;
     boolean deleted;
     List<RoleName> roleNames;
     List<SimpleGrantedAuthority> authorities;
 
-    public static CustomUserDetails of(UserEntity user, Collection<RoleName> roles) {
+    public static CustomUserDetails of(User user, Collection<RoleName> roles) {
         Objects.requireNonNull(user, "user must not be null");
         List<RoleName> effectiveRoles = roles == null || roles.isEmpty()
                 ? List.of(RoleName.ROLE_USER)
@@ -36,10 +36,9 @@ public class CustomUserDetails implements UserDetails {
                 .map(RoleName::name)
                 .map(SimpleGrantedAuthority::new)
                 .toList();
-        String username = user.getEmailCipher();
         return CustomUserDetails.builder()
                 .user(user)
-                .email(username)
+                .email(user.getEmailCipher())
                 .password(user.getPassword())
                 .deleted(user.isDeleted())
                 .roleNames(effectiveRoles)
