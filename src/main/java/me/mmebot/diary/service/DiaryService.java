@@ -61,26 +61,25 @@ public class DiaryService {
     }
 
     @Transactional(readOnly = true)
-    public DiaryDetail getDiary(Long diaryId) {
-        log.debug("Fetching diary {}", diaryId);
-        return diaryResponseMapper.toDetail(getActiveDiary(diaryId));
+    public DiaryListItem getDiary(Long diaryId) {
+        return diaryResponseMapper.toListItem(getActiveDiary(diaryId));
     }
 
     @Transactional(readOnly = true)
-    public List<DiaryDetail> getDiariesByUserAndMonth(Long userId, Integer year, Integer month) {
+    public List<DiaryListItem> getDiariesByUserAndMonth(Long userId, Integer year, Integer month) {
         UserEntity user = userService.getActiveUser(userId);
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDate startDate = yearMonth.atDay(1);
         LocalDate endDate = yearMonth.atEndOfMonth();
-        List<DiaryDetail> details = diaryRepository
+        List<DiaryListItem> details = diaryRepository
                 .findMonthlyDiaries(user.getId(), startDate, endDate)
                 .stream()
-                .map(diaryResponseMapper::toDetail)
+                .map(diaryResponseMapper::toListItem)
                 .toList();
         return details;
     }
 
-//    public DiaryDetail updateDiary(Long diaryId, UpdateDiaryRequest request) {
+//    public DiaryListItem updateDiary(Long diaryId, UpdateDiaryRequest request) {
 //        log.info("Updating diary {} for date {}", diaryId, request.date());
 //        DiaryEntity diary = getActiveDiary(diaryId);
 //        ensureUniqueDiaryDate(diary.getUser().getId(), request.date(), diaryId);
@@ -88,7 +87,7 @@ public class DiaryService {
 //        String summaryShort = openAiService.diarySummarizeShort(request.content());
 //        diary.update(request.content().strip(), request.emotion(), summaryShort, request.date());
 //        log.info("DiaryEntity {} updated", diaryId);
-//        return diaryResponseMapper.toDetail(diary);
+//        return diaryResponseMapper.toListItem(diary);
 //    }
 //
 //    public void deleteDiary(Long diaryId) {

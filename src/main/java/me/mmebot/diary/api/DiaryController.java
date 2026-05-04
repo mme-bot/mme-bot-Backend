@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 import static me.mmebot.diary.api.dto.DiaryResponse.*;
-import static me.mmebot.diary.api.dto.DiaryResponse.DiaryDetail;
+import static me.mmebot.diary.api.dto.DiaryResponse.DiaryListItem;
 
 @RestController
 @Validated
@@ -34,12 +34,12 @@ public class DiaryController {
     }
 
 //    @GetMapping("/{diaryId}")
-//    public DiaryDetail getDiary(@PathVariable Long diaryId) {
+//    public DiaryListItem getDiary(@PathVariable Long diaryId) {
 //        return diaryService.getDiary(diaryId);
 //    }
 
     @GetMapping
-    public List<DiaryDetail> getDiaries(
+    public List<DiaryListItem> getDiaries(
             @AuthenticationPrincipal Long userId,
             @Valid @ModelAttribute GetDiariesRequest request
     ) {
