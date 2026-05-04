@@ -10,6 +10,13 @@ public final class DiaryResponse {
 
     public record CreateDiaryRes(Long diaryId) {}
 
+    public record DiaryListItem(
+            Long diaryId,
+            String emotion,
+            LocalDate date
+    ) {
+    }
+
     public record DiaryDetail(
             Long diaryId,
             String content,

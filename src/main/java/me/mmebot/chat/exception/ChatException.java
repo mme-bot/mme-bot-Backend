@@ -53,6 +53,14 @@ public class ChatException extends ApiException {
         );
     }
 
+    public static ChatException chatSessionNotFoundByDiaryId(Long diaryId) {
+        return new ChatException(
+                HttpStatus.NOT_FOUND,
+                "Chat session for diary %d not found".formatted(diaryId),
+                "chat.session.not_found"
+        );
+    }
+
     public static ChatException chatMessageNotFound(Long chatMessageId) {
         return new ChatException(
                 HttpStatus.NOT_FOUND,

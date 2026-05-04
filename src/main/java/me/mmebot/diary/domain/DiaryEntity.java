@@ -73,6 +73,20 @@ public class DiaryEntity {
         return deletedAt != null;
     }
 
+    public Diary toModel() {
+        return Diary.builder()
+                .id(this.id)
+                .userId(this.user != null ? this.user.getId() : null)
+                .content(this.content)
+                .emotion(this.emotion)
+                .summaryShort(this.summaryShort)
+                .date(this.date)
+                .createdAt(this.createdAt)
+                .updatedAt(this.updatedAt)
+                .deletedAt(this.deletedAt)
+                .build();
+    }
+
     public void update(String content, String emotion, String summaryShort, LocalDate date) {
         this.content = content;
         this.emotion = emotion;

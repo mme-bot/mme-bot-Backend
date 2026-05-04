@@ -5,11 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.bot.domain.BotEntity;
+import me.mmebot.chat.domain.ChatMessage;
 import me.mmebot.chat.domain.ChatMessageEntity;
+import me.mmebot.chat.domain.ChatMessages;
 import me.mmebot.chat.domain.ChatSessionEntity;
 import me.mmebot.chat.domain.ChatSessionStatus;
 import me.mmebot.chat.domain.ChatStatus;
 import me.mmebot.chat.exception.ChatException;
+import me.mmebot.chat.mapper.ChatMessageResponseMapper;
 import me.mmebot.chat.queue.ChatPersistenceQueueService;
 import me.mmebot.chat.repository.ChatMessageRepository;
 import me.mmebot.chat.repository.ChatSessionRepository;
@@ -17,6 +20,7 @@ import me.mmebot.common.crypto.AesGcmCryptoService;
 import me.mmebot.core.domain.EncryptionContextEntity;
 import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.core.service.TemplateService;
+import me.mmebot.diary.domain.Diary;
 import me.mmebot.diary.domain.DiaryEntity;
 import me.mmebot.diary.service.DiaryService;
 import me.mmebot.openai.dto.ChatMessageRole;
@@ -56,6 +60,7 @@ public class ChatService {
     private final ChatPersistenceQueueService chatPersistenceQueueService;
     private final ObjectMapper objectMapper;
     private final TemplateService templateService;
+    private final ChatMessageResponseMapper chatMessageResponseMapper;
 
     public CreateChatSessionRes createChatSession(CreateChatSessionReq req) {
         DiaryEntity diary = diaryService.getActiveDiary(req.diaryId());
@@ -108,6 +113,10 @@ public class ChatService {
 
     private Optional<ChatSessionEntity> getChatSessionByDiaryId(Long diaryId) {
         return chatSessionRepository.findByDiaryId(diaryId);
+    }
+
+    protected Optional<ChatSessionEntity> getChatSessionWithDiaryAndUserByDiaryId(Long diaryId) {
+        return chatSessionRepository.findWithDiaryAndUserByDiaryId(diaryId);
     }
 
     public Flux<ChatStreamPayload> createChatMessage(String streamId) {
@@ -605,18 +614,54 @@ public class ChatService {
         }
 
         List<ChatMessageEntity> chatMessages = getChatMessages(chatSession);
-        if (chatMessages.isEmpty()) {
+        ChatMessages domainMessages = toChatMessages(chatMessages);
+        if (domainMessages.isEmpty()) {
             throw ChatException.chatSessionHasNoMessages(chatSession.getId());
         }
 
-        List<ChatMsg> chatMsgs = new ArrayList<>(chatMessages.stream().map(msg -> {
-            String message = aesGcmCryptoService.decryptWithAad(msg.getContent(), msg.getEncryptionContext().getAadHash());
-            return new ChatMsg(msg.getSeq(), msg.getRole(), message);
-        }).toList());
+        return toSortedChatMsgs(chatMessages, domainMessages);
+    }
 
-        chatMsgs.sort(Comparator.comparing(ChatMsg::seq));
+    public List<ChatMsg> getChatMsgsByDiaryId(Long userId, Long diaryId) {
+        UserEntity user = userService.getActiveUser(userId);
 
-        return chatMsgs;
+        ChatSessionEntity chatSession = getChatSessionWithDiaryAndUserByDiaryId(diaryId)
+                .orElseThrow(() -> ChatException.chatSessionNotFoundByDiaryId(diaryId));
+
+        Diary diary = chatSession.getDiary().toModel();
+        if (!diary.isOwnedBy(user.getId())) {
+            throw ChatException.diaryOwnerMismatch(
+                    diary.getId(),
+                    user.getId(),
+                    diary.getUserId()
+            );
+        }
+
+        List<ChatMessageEntity> chatMessages = getChatMessages(chatSession);
+        ChatMessages domainMessages = toChatMessages(chatMessages);
+        if (domainMessages.isEmpty()) {
+            throw ChatException.chatSessionHasNoMessages(chatSession.getId());
+        }
+
+        return toSortedChatMsgs(chatMessages, domainMessages);
+    }
+
+    private ChatMessages toChatMessages(List<ChatMessageEntity> chatMessages) {
+        return ChatMessages.from(chatMessages.stream()
+                .map(ChatMessageEntity::toModel)
+                .toList());
+    }
+
+    private List<ChatMsg> toSortedChatMsgs(List<ChatMessageEntity> chatMessages, ChatMessages domainMessages) {
+        Map<Long, ChatMessageEntity> entityById = chatMessages.stream()
+                .collect(java.util.stream.Collectors.toMap(ChatMessageEntity::getId, msg -> msg));
+
+        return domainMessages.sortedBySeq().stream()
+                .map(chatMessage -> chatMessageResponseMapper.toChatMsg(
+                        chatMessage,
+                        decryptChatMessage(entityById.get(chatMessage.getId()))
+                ))
+                .toList();
     }
 
     /**
