@@ -22,9 +22,7 @@ import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.exception.AuthException;
 import me.mmebot.auth.jwt.JwtPayload;
 import me.mmebot.user.domain.User;
-import org.springframework.stereotype.Service;
 
-@Service
 @RequiredArgsConstructor
 @Transactional
 @Slf4j

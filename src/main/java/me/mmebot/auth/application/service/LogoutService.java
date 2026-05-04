@@ -9,9 +9,7 @@ import me.mmebot.auth.application.port.in.LogoutUseCase;
 import me.mmebot.auth.application.port.in.command.session.LogoutCommand;
 import me.mmebot.auth.application.port.out.persistence.RefreshTokenPort;
 import me.mmebot.auth.exception.AuthException;
-import org.springframework.stereotype.Service;
 
-@Service
 @RequiredArgsConstructor
 @Transactional
 @Slf4j

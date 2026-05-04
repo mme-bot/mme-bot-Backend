@@ -41,29 +41,23 @@ public class UserEntity {
     @JoinColumn(name = "bot_id")
     private BotEntity bot;
 
-    @Column(
-//            nullable = false,
-            length = 320, unique = true)
+    @Column(name = "email_hash", nullable = false, length = 320, unique = true)
     private String emailHash;
 
-    @Column(length = 320)
+    @Column(name = "email_cipher", length = 320)
     private String emailCipher;
 
-    @Column(
-//            nullable = false,
-            length = 255)
+    @Column(name = "password", nullable = false, length = 255)
     private String password;
 
-    @Column(nullable = false, length = 40)
+    @Column(name = "nickname", nullable = false, length = 40)
     private String nickname;
 
     @Column(name = "is_sns", nullable = false)
     private boolean sns;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "encryption_context_id"
-//            , nullable = false
-    )
+    @JoinColumn(name = "encryption_context_id", nullable = false)
     private EncryptionContextEntity emailEncryptionContext;
 
     @CreationTimestamp

@@ -44,10 +44,10 @@ public class AuthTokenEntity {
     private UserEntity user;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
+    @Column(name = "type", nullable = false, length = 32)
     private AuthTokenType type;
 
-    @Column(name = "token", columnDefinition = "TEXT")
+    @Column(name = "token", nullable = false, columnDefinition = "TEXT")
     private String token;
 
     @CreationTimestamp
@@ -63,7 +63,7 @@ public class AuthTokenEntity {
     @Column(name = "user_agent", columnDefinition = "TEXT")
     private String userAgent;
 
-    @Column(name = "ip_address")
+    @Column(name = "ip_address", length = 255)
     private String ipAddress;
 
     @ManyToOne(fetch = FetchType.LAZY)
