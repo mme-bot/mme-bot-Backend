@@ -33,4 +33,32 @@ public class Diary {
     public boolean isOwnedBy(Long userId) {
         return this.userId != null && this.userId.equals(userId);
     }
+
+    public Diary update(String content, String emotion, String summaryShort, LocalDate date) {
+        return Diary.builder()
+                .id(this.id)
+                .userId(this.userId)
+                .content(content)
+                .emotion(emotion)
+                .summaryShort(summaryShort)
+                .date(date)
+                .createdAt(this.createdAt)
+                .updatedAt(this.updatedAt)
+                .deletedAt(this.deletedAt)
+                .build();
+    }
+
+    public Diary markDeleted(OffsetDateTime deletedAt) {
+        return Diary.builder()
+                .id(this.id)
+                .userId(this.userId)
+                .content(this.content)
+                .emotion(this.emotion)
+                .summaryShort(this.summaryShort)
+                .date(this.date)
+                .createdAt(this.createdAt)
+                .updatedAt(this.updatedAt)
+                .deletedAt(deletedAt)
+                .build();
+    }
 }
