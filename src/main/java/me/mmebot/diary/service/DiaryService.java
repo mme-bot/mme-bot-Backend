@@ -3,6 +3,7 @@ package me.mmebot.diary.service;
 import static me.mmebot.diary.api.dto.DiaryResponse.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import me.mmebot.core.service.EncryptionContextFactory;
 import me.mmebot.diary.api.dto.CreateDiaryRequest;
 import me.mmebot.diary.domain.DiaryEntity;
 import me.mmebot.diary.exception.DiaryException;
+import me.mmebot.diary.mapper.DiaryResponseMapper;
 import me.mmebot.diary.repository.DiaryRepository;
 import me.mmebot.openai.service.OpenAIService;
 import me.mmebot.user.domain.UserEntity;
@@ -29,6 +31,7 @@ public class DiaryService {
     private final UserService userService;
     private final EncryptionContextFactory encryptionContextFactory;
     private final OpenAIService openAiService;
+    private final DiaryResponseMapper diaryResponseMapper;
 
     public CreateDiaryRes createDiary(CreateDiaryRequest request) {
         UserEntity user = userService.getActiveUser(request.userId());
@@ -61,20 +64,20 @@ public class DiaryService {
     @Transactional(readOnly = true)
     public DiaryDetail getDiary(Long diaryId) {
         log.debug("Fetching diary {}", diaryId);
-        return toDetail(getActiveDiary(diaryId));
+        return diaryResponseMapper.toDetail(getActiveDiary(diaryId));
     }
 
-//    @Transactional(readOnly = true)
-//    public List<DiaryDetail> getDiariesByUser(Long userId) {
-//        log.debug("Fetching diaries for user {}", userId);
-//        UserEntity user = userService.getActiveUser(userId);
-//        List<DiaryDetail> details = diaryRepository.findByUserIdAndDeletedAtIsNullOrderByDateDesc(user.getId()).stream()
-//                .map(DiaryService::toDetail)
-//                .toList();
-//        log.debug("Fetched {} diaries for user {}", details.size(), userId);
-//        return details;
-//    }
-//
+    @Transactional(readOnly = true)
+    public List<DiaryDetail> getDiariesByUser(Long userId) {
+        UserEntity user = userService.getActiveUser(userId);
+        List<DiaryDetail> details = diaryRepository
+                .findByUserIdAndDeletedAtIsNullOrderByDateDesc(user.getId())
+                .stream()
+                .map(diaryResponseMapper::toDetail)
+                .toList();
+        return details;
+    }
+
 //    public DiaryDetail updateDiary(Long diaryId, UpdateDiaryRequest request) {
 //        log.info("Updating diary {} for date {}", diaryId, request.date());
 //        DiaryEntity diary = getActiveDiary(diaryId);
@@ -83,7 +86,7 @@ public class DiaryService {
 //        String summaryShort = openAiService.diarySummarizeShort(request.content());
 //        diary.update(request.content().strip(), request.emotion(), summaryShort, request.date());
 //        log.info("DiaryEntity {} updated", diaryId);
-//        return toDetail(diary);
+//        return diaryResponseMapper.toDetail(diary);
 //    }
 //
 //    public void deleteDiary(Long diaryId) {
@@ -107,18 +110,5 @@ public class DiaryService {
                     log.warn("DiaryEntity {} already exists for user {} on {}", existing.getId(), userId, date);
                     throw DiaryException.diaryAlreadyExists(date);
                 });
-    }
-
-    private DiaryDetail toDetail(DiaryEntity diary) {
-        byte[] aadHash = diary.getEncryptionContext().getAadHash();
-        String content = aesGcmCryptoService.decryptWithAad(diary.getContent(), aadHash);
-        return new DiaryDetail(
-                diary.getId(),
-                content,
-                diary.getEmotion(),
-                diary.getDate(),
-                diary.getCreatedAt(),
-                diary.getUpdatedAt()
-        );
     }
 }

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import me.mmebot.diary.api.dto.CreateDiaryRequest;
 import me.mmebot.diary.service.DiaryService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,6 +12,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 import static me.mmebot.diary.api.dto.DiaryResponse.*;
 import static me.mmebot.diary.api.dto.DiaryResponse.DiaryDetail;
@@ -33,13 +36,11 @@ public class DiaryController {
 //        return diaryService.getDiary(diaryId);
 //    }
 
-//    @GetMapping
-//    public List<DiaryResponse> getDiaries(@RequestParam("userId") @NotNull Long userId) {
-//        return diaryService.getDiariesByUser(userId).stream()
-//                .map(DiaryResponse::from)
-//                .toList();
-//    }
-//
+    @GetMapping
+    public List<DiaryDetail> getDiaries(@AuthenticationPrincipal Long userId) {
+        return diaryService.getDiariesByUser(userId);
+    }
+
 //    @PutMapping("/{diaryId}")
 //    public DiaryResponse updateDiary(@PathVariable Long diaryId,
 //                                     @Valid @RequestBody UpdateDiaryRequest request) {
