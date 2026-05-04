@@ -5,11 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.mmebot.bot.domain.BotEntity;
+import me.mmebot.chat.domain.ChatMessage;
 import me.mmebot.chat.domain.ChatMessageEntity;
+import me.mmebot.chat.domain.ChatMessages;
 import me.mmebot.chat.domain.ChatSessionEntity;
 import me.mmebot.chat.domain.ChatSessionStatus;
 import me.mmebot.chat.domain.ChatStatus;
 import me.mmebot.chat.exception.ChatException;
+import me.mmebot.chat.mapper.ChatMessageResponseMapper;
 import me.mmebot.chat.queue.ChatPersistenceQueueService;
 import me.mmebot.chat.repository.ChatMessageRepository;
 import me.mmebot.chat.repository.ChatSessionRepository;
@@ -57,6 +60,7 @@ public class ChatService {
     private final ChatPersistenceQueueService chatPersistenceQueueService;
     private final ObjectMapper objectMapper;
     private final TemplateService templateService;
+    private final ChatMessageResponseMapper chatMessageResponseMapper;
 
     public CreateChatSessionRes createChatSession(CreateChatSessionReq req) {
         DiaryEntity diary = diaryService.getActiveDiary(req.diaryId());
@@ -610,18 +614,12 @@ public class ChatService {
         }
 
         List<ChatMessageEntity> chatMessages = getChatMessages(chatSession);
-        if (chatMessages.isEmpty()) {
+        ChatMessages domainMessages = toChatMessages(chatMessages);
+        if (domainMessages.isEmpty()) {
             throw ChatException.chatSessionHasNoMessages(chatSession.getId());
         }
 
-        List<ChatMsg> chatMsgs = new ArrayList<>(chatMessages.stream().map(msg -> {
-            String message = aesGcmCryptoService.decryptWithAad(msg.getContent(), msg.getEncryptionContext().getAadHash());
-            return new ChatMsg(msg.getSeq(), msg.getRole(), message);
-        }).toList());
-
-        chatMsgs.sort(Comparator.comparing(ChatMsg::seq));
-
-        return chatMsgs;
+        return toSortedChatMsgs(chatMessages, domainMessages);
     }
 
     public List<ChatMsg> getChatMsgsByDiaryId(Long userId, Long diaryId) {
@@ -640,18 +638,30 @@ public class ChatService {
         }
 
         List<ChatMessageEntity> chatMessages = getChatMessages(chatSession);
-        if (chatMessages.isEmpty()) {
+        ChatMessages domainMessages = toChatMessages(chatMessages);
+        if (domainMessages.isEmpty()) {
             throw ChatException.chatSessionHasNoMessages(chatSession.getId());
         }
 
-        List<ChatMsg> chatMsgs = new ArrayList<>(chatMessages.stream().map(msg -> {
-            String message = aesGcmCryptoService.decryptWithAad(msg.getContent(), msg.getEncryptionContext().getAadHash());
-            return new ChatMsg(msg.getSeq(), msg.getRole(), message);
-        }).toList());
+        return toSortedChatMsgs(chatMessages, domainMessages);
+    }
 
-        chatMsgs.sort(Comparator.comparing(ChatMsg::seq));
+    private ChatMessages toChatMessages(List<ChatMessageEntity> chatMessages) {
+        return ChatMessages.from(chatMessages.stream()
+                .map(ChatMessageEntity::toModel)
+                .toList());
+    }
 
-        return chatMsgs;
+    private List<ChatMsg> toSortedChatMsgs(List<ChatMessageEntity> chatMessages, ChatMessages domainMessages) {
+        Map<Long, ChatMessageEntity> entityById = chatMessages.stream()
+                .collect(java.util.stream.Collectors.toMap(ChatMessageEntity::getId, msg -> msg));
+
+        return domainMessages.sortedBySeq().stream()
+                .map(chatMessage -> chatMessageResponseMapper.toChatMsg(
+                        chatMessage,
+                        decryptChatMessage(entityById.get(chatMessage.getId()))
+                ))
+                .toList();
     }
 
     /**

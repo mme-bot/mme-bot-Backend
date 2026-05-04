@@ -78,6 +78,18 @@ public class ChatMessageEntity {
         return role == ChatMessageRole.USER;
     }
 
+    public ChatMessage toModel() {
+        return ChatMessage.builder()
+                .id(this.id)
+                .chatSessionId(this.chatSession != null ? this.chatSession.getId() : null)
+                .seq(this.seq)
+                .role(this.role)
+                .content(this.content)
+                .replyMsgId(this.replyMsg != null ? this.replyMsg.getId() : null)
+                .createdAt(this.createdAt)
+                .build();
+    }
+
     public void updateReplyMsg(ChatMessageEntity replyMsg) {
         this.replyMsg = replyMsg;
     }
