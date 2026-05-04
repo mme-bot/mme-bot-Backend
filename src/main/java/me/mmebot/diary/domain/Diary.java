@@ -34,6 +34,10 @@ public class Diary {
         return this.userId != null && this.userId.equals(userId);
     }
 
+    public boolean isChatStartableOn(LocalDate date) {
+        return this.date != null && this.date.isEqual(date);
+    }
+
     public Diary update(String content, String emotion, String summaryShort, LocalDate date) {
         return Diary.builder()
                 .id(this.id)

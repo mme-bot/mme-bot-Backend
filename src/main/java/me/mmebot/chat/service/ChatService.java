@@ -76,7 +76,7 @@ public class ChatService {
          */
 
         LocalDate today = LocalDate.now();
-        if (!diary.getDate().isEqual(today)) {
+        if (!diary.isChatStartableOn(today)) {
             throw ChatException.diaryNotFromToday(diary.getId(), diary.getDate(), today);
         }
 
