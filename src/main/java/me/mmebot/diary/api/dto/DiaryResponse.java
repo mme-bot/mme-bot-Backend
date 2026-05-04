@@ -16,4 +16,14 @@ public final class DiaryResponse {
             LocalDate date
     ) {
     }
+
+    public record DiaryDetail(
+            Long diaryId,
+            String content,
+            String emotion,
+            LocalDate date,
+            OffsetDateTime createdAt,
+            OffsetDateTime updatedAt
+    ) {
+    }
 }

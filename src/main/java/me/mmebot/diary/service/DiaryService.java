@@ -61,8 +61,8 @@ public class DiaryService {
     }
 
     @Transactional(readOnly = true)
-    public DiaryListItem getDiary(Long diaryId) {
-        return diaryResponseMapper.toListItem(getActiveDiary(diaryId));
+    public DiaryDetail getDiary(Long diaryId) {
+        return diaryResponseMapper.toDetail(getActiveDiary(diaryId));
     }
 
     @Transactional(readOnly = true)
@@ -79,7 +79,7 @@ public class DiaryService {
         return details;
     }
 
-//    public DiaryListItem updateDiary(Long diaryId, UpdateDiaryRequest request) {
+//    public DiaryDetail updateDiary(Long diaryId, UpdateDiaryRequest request) {
 //        log.info("Updating diary {} for date {}", diaryId, request.date());
 //        DiaryEntity diary = getActiveDiary(diaryId);
 //        ensureUniqueDiaryDate(diary.getUser().getId(), request.date(), diaryId);
@@ -87,7 +87,7 @@ public class DiaryService {
 //        String summaryShort = openAiService.diarySummarizeShort(request.content());
 //        diary.update(request.content().strip(), request.emotion(), summaryShort, request.date());
 //        log.info("DiaryEntity {} updated", diaryId);
-//        return diaryResponseMapper.toListItem(diary);
+//        return diaryResponseMapper.toDetail(diary);
 //    }
 //
 //    public void deleteDiary(Long diaryId) {
