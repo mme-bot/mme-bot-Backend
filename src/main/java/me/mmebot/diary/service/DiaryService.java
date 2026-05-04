@@ -3,6 +3,7 @@ package me.mmebot.diary.service;
 import static me.mmebot.diary.api.dto.DiaryResponse.*;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
@@ -68,10 +69,13 @@ public class DiaryService {
     }
 
     @Transactional(readOnly = true)
-    public List<DiaryDetail> getDiariesByUser(Long userId) {
+    public List<DiaryDetail> getDiariesByUserAndMonth(Long userId, Integer year, Integer month) {
         UserEntity user = userService.getActiveUser(userId);
+        YearMonth yearMonth = YearMonth.of(year, month);
+        LocalDate startDate = yearMonth.atDay(1);
+        LocalDate endDate = yearMonth.atEndOfMonth();
         List<DiaryDetail> details = diaryRepository
-                .findByUserIdAndDeletedAtIsNullOrderByDateDesc(user.getId())
+                .findByUserIdAndDateBetweenAndDeletedAtIsNullOrderByDateDesc(user.getId(), startDate, endDate)
                 .stream()
                 .map(diaryResponseMapper::toDetail)
                 .toList();
