@@ -20,6 +20,7 @@ import me.mmebot.auth.application.port.out.persistence.UserPersistencePort;
 import me.mmebot.auth.domain.AuthToken;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.exception.AuthException;
+import me.mmebot.user.domain.NormalizedEmail;
 import me.mmebot.user.domain.User;
 import org.springframework.stereotype.Service;
 
@@ -38,9 +39,9 @@ public class AuthSessionService implements SignInUseCase, ReissueTokenUseCase, L
 
     @Override
     public SignInResult signIn(SignInCommand command) {
-        String normalizedEmail = command.email().trim().toLowerCase();
+        NormalizedEmail normalizedEmail = NormalizedEmail.from(command.email());
 
-        User user = userPersistencePort.loadByNormalizedEmail(normalizedEmail)
+        User user = userPersistencePort.loadByNormalizedEmail(normalizedEmail.value())
                 .orElseThrow(() -> {
                     log.warn("Sign-in failed: no user found for {}", normalizedEmail);
                     return AuthException.invalidCredentials();

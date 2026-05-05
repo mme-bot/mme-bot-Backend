@@ -29,6 +29,7 @@ import me.mmebot.auth.service.AuthServiceRecords.TokenPair;
 import me.mmebot.common.logging.Masked;
 import me.mmebot.core.domain.EncryptionContextEntity;
 import me.mmebot.core.service.EncryptionContextFactory;
+import me.mmebot.user.domain.NormalizedEmail;
 import me.mmebot.user.domain.User;
 import me.mmebot.user.domain.UserEntity;
 import me.mmebot.user.repository.UserRepository;
@@ -57,10 +58,10 @@ public class AuthService {
     private final UserEmailProtector userEmailProtector;
 
     public SignInResult signIn(String email, @Masked String rawPassword, ClientMetadata metadata) {
-        String normalizedEmail = normalizeEmail(email);
+        NormalizedEmail normalizedEmail = normalizeEmail(email);
         CustomUserDetails userDetails;
         try {
-            userDetails = (CustomUserDetails) customUserDetailsService.loadUserByUsername(email);
+            userDetails = (CustomUserDetails) customUserDetailsService.loadUserByUsername(normalizedEmail.value());
         } catch (UsernameNotFoundException ex) {
             throw AuthException.invalidCredentials();
         }
@@ -100,7 +101,7 @@ public class AuthService {
     }
 
     private String getNormalizedEmail(String email) {
-        return email.toLowerCase().trim();
+        return normalizeEmail(email).value();
     }
 
     public void signUp(SignUpCommand command) {
@@ -234,10 +235,11 @@ public class AuthService {
         }
     }
 
-    private String normalizeEmail(String email) {
-        if (email == null) {
+    private NormalizedEmail normalizeEmail(String email) {
+        try {
+            return NormalizedEmail.from(email);
+        } catch (IllegalArgumentException e) {
             throw AuthException.emailRequired();
         }
-        return email.trim().toLowerCase();
     }
 }

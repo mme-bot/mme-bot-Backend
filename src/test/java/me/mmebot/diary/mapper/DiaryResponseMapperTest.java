@@ -11,8 +11,10 @@ import me.mmebot.core.domain.EncryptionContextEntity;
 import me.mmebot.diary.api.dto.DiaryResponse.DiaryDetail;
 import me.mmebot.diary.api.dto.DiaryResponse.DiaryListItem;
 import me.mmebot.diary.domain.DiaryEntity;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+@DisplayName("DiaryResponseMapper 테스트")
 class DiaryResponseMapperTest {
 
     private final AesGcmCryptoService aesGcmCryptoService =
@@ -21,6 +23,7 @@ class DiaryResponseMapperTest {
     private final DiaryResponseMapper diaryResponseMapper = new DiaryResponseMapper(aesGcmCryptoService);
 
     @Test
+    @DisplayName("Diary 도메인을 일기 목록 응답으로 변환한다")
     void toListItemMapsDiaryFields() {
         byte[] aadHash = "aad-hash".getBytes();
         String encryptedContent = "encrypted-content";
@@ -45,6 +48,7 @@ class DiaryResponseMapperTest {
     }
 
     @Test
+    @DisplayName("Diary 도메인의 암호화된 본문을 복호화해 일기 상세 응답으로 변환한다")
     void toDetailDecryptsContentAndMapsDiaryFields() {
         byte[] aadHash = "aad-hash".getBytes();
         String decryptedContent = "decrypted-content";

@@ -2,6 +2,7 @@ package me.mmebot.diary.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -74,5 +75,38 @@ class DiaryTest {
 
         assertThat(diary.isDeleted()).isTrue();
         assertThat(diary.isActive()).isFalse();
+    }
+
+    @Test
+    @DisplayName("일기 날짜가 기준 날짜와 같으면 채팅 시작 가능으로 판단한다")
+    void isChatStartableOnReturnsTrueWhenDiaryDateMatchesDate() {
+        LocalDate date = LocalDate.of(2026, 5, 5);
+        Diary diary = Diary.builder()
+                .id(1L)
+                .date(date)
+                .build();
+
+        assertThat(diary.isChatStartableOn(date)).isTrue();
+    }
+
+    @Test
+    @DisplayName("일기 날짜가 기준 날짜와 다르면 채팅 시작 불가로 판단한다")
+    void isChatStartableOnReturnsFalseWhenDiaryDateDoesNotMatchDate() {
+        Diary diary = Diary.builder()
+                .id(1L)
+                .date(LocalDate.of(2026, 5, 4))
+                .build();
+
+        assertThat(diary.isChatStartableOn(LocalDate.of(2026, 5, 5))).isFalse();
+    }
+
+    @Test
+    @DisplayName("일기 날짜가 없으면 채팅 시작 불가로 판단한다")
+    void isChatStartableOnReturnsFalseWhenDiaryDateIsMissing() {
+        Diary diary = Diary.builder()
+                .id(1L)
+                .build();
+
+        assertThat(diary.isChatStartableOn(LocalDate.of(2026, 5, 5))).isFalse();
     }
 }

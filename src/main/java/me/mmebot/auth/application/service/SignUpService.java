@@ -14,6 +14,7 @@ import me.mmebot.auth.domain.RoleEntity;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.exception.AuthException;
 import me.mmebot.core.domain.EncryptionContextEntity;
+import me.mmebot.user.domain.NormalizedEmail;
 import me.mmebot.user.domain.UserEntity;
 import org.springframework.stereotype.Service;
 
@@ -31,18 +32,20 @@ public class SignUpService implements SignUpUseCase {
 
     @Override
     public void signUp(SignUpCommand command) {
-        if (command.email() == null) {
+        NormalizedEmail normalizedEmail;
+        try {
+            normalizedEmail = NormalizedEmail.from(command.email());
+        } catch (IllegalArgumentException e) {
             throw AuthException.emailRequired();
         }
-        String normalizedEmail = command.email().trim().toLowerCase();
 
-        userPersistencePort.loadByNormalizedEmail(normalizedEmail).ifPresent(_ -> {
+        userPersistencePort.loadByNormalizedEmail(normalizedEmail.value()).ifPresent(_ -> {
             log.warn("Sign-up failed: {} already in use", normalizedEmail);
             throw AuthException.duplicateEmail();
         });
 
-        byte[] aadHash = emailProtectPort.aadHash(normalizedEmail);
-        EmailProtectPort.EmailSecrets emailSecrets = emailProtectPort.prepare(normalizedEmail, aadHash);
+        byte[] aadHash = emailProtectPort.aadHash(normalizedEmail.value());
+        EmailProtectPort.EmailSecrets emailSecrets = emailProtectPort.prepare(normalizedEmail.value(), aadHash);
         EncryptionContextEntity encryptionContext = encryptionContextPort.create(aadHash);
 
         UserEntity user = UserEntity.builder()

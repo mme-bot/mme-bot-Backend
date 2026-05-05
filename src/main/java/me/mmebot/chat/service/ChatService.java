@@ -63,11 +63,12 @@ public class ChatService {
     private final ChatMessageResponseMapper chatMessageResponseMapper;
 
     public CreateChatSessionRes createChatSession(CreateChatSessionReq req) {
-        DiaryEntity diary = diaryService.getActiveDiary(req.diaryId());
-        UserEntity user = diary.getUser();
-        if (!req.userId().equals(user.getId())) {
-            throw ChatException.diaryOwnerMismatch(diary.getId(), req.userId(), user.getId());
+        DiaryEntity diaryEntity = diaryService.getActiveDiary(req.diaryId());
+        Diary diary = diaryEntity.toModel();
+        if (!diary.isOwnedBy(req.userId())) {
+            throw ChatException.diaryOwnerMismatch(diary.getId(), req.userId(), diary.getUserId());
         }
+        UserEntity user = diaryEntity.getUser();
 
         /**
          * TODO 일기 쓴 당일에만 채팅 시작 가능, 당일에 채팅을 못하면 다음날에는 중단 됨,
@@ -75,7 +76,7 @@ public class ChatService {
          */
 
         LocalDate today = LocalDate.now();
-        if (!diary.getDate().isEqual(today)) {
+        if (!diary.isChatStartableOn(today)) {
             throw ChatException.diaryNotFromToday(diary.getId(), diary.getDate(), today);
         }
 
@@ -88,7 +89,7 @@ public class ChatService {
         EncryptionContextEntity context = encryptionContextFactory.createContext(user.getId().toString());
 
         ChatSessionEntity chatSession = ChatSessionEntity.builder()
-                .diary(diary)
+                .diary(diaryEntity)
                 .bot(user.getBot())
                 .status(ChatSessionStatus.ACTIVE)
                 .encryptionContext(context)

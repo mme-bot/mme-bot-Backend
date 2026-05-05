@@ -69,10 +69,6 @@ public class DiaryEntity {
     @JoinColumn(name = "encryption_context_id", nullable = false)
     private EncryptionContextEntity encryptionContext;
 
-    public boolean isDeleted() {
-        return deletedAt != null;
-    }
-
     public Diary toModel() {
         return Diary.builder()
                 .id(this.id)
@@ -85,16 +81,5 @@ public class DiaryEntity {
                 .updatedAt(this.updatedAt)
                 .deletedAt(this.deletedAt)
                 .build();
-    }
-
-    public void update(String content, String emotion, String summaryShort, LocalDate date) {
-        this.content = content;
-        this.emotion = emotion;
-        this.summaryShort = summaryShort;
-        this.date = date;
-    }
-
-    public void markDeleted(OffsetDateTime deletedAt) {
-        this.deletedAt = deletedAt;
     }
 }
