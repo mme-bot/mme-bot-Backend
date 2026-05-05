@@ -13,6 +13,7 @@ import me.mmebot.auth.application.port.out.persistence.LoadUserRolesPort;
 import me.mmebot.auth.application.port.out.persistence.UserPersistencePort;
 import me.mmebot.auth.domain.RoleName;
 import me.mmebot.auth.exception.AuthException;
+import me.mmebot.user.domain.NormalizedEmail;
 import me.mmebot.user.domain.User;
 
 @RequiredArgsConstructor
@@ -27,22 +28,22 @@ public class SignInService implements SignInUseCase {
 
     @Override
     public SignInResult signIn(SignInCommand command) {
-        String normalizedEmail = command.email().trim().toLowerCase();
+        NormalizedEmail normalizedEmail = NormalizedEmail.from(command.email());
 
-        User user = userPersistencePort.loadByNormalizedEmail(normalizedEmail)
+        User user = userPersistencePort.loadByNormalizedEmail(normalizedEmail.value())
                 .orElseThrow(() -> {
                     log.warn("Sign-in failed: no user found for {}", normalizedEmail);
                     return AuthException.invalidCredentials();
                 });
 
-        if (user.isDeleted()) {
-            log.warn("Sign-in failed: user {} is marked as deleted", user.getId());
-            throw AuthException.deletedAccount();
-        }
-
         if (!passwordPort.matches(command.password(), user.getPassword())) {
             log.warn("Sign-in failed: invalid credentials for {}", normalizedEmail);
             throw AuthException.invalidCredentials();
+        }
+
+        if (!user.isActive()) {
+            log.warn("Sign-in failed: user {} is marked as deleted", user.getId());
+            throw AuthException.deletedAccount();
         }
 
         List<RoleName> roles = loadUserRolesPort.loadRoleNames(user.getId());
